@@ -737,19 +737,27 @@ def load_frame(train_path: str | Path, labels_path: str | Path, *, max_rows_per_
         labels = pd.read_parquet(labels_path)
     else:
         labels = pd.read_feather(labels_path)
-    required = {"sample_id", "month"}
+    required = {"sample_id", "month", "target"}
+    if not required.issubset(features.columns):
+        raise ValueError(f"features must contain {sorted(required)}")
     if not required.issubset(labels.columns):
         raise ValueError(f"labels must contain {sorted(required)}")
-    if "target" not in features.columns and "target" not in labels.columns:
-        raise ValueError("target is absent from both feature and label files")
-    if "target" in features.columns and "target" in labels.columns:
-        check = features[["sample_id", "target"]].merge(labels[["sample_id", "target"]], on="sample_id", suffixes=("_feature", "_label"), validate="one_to_one")
-        if not np.array_equal(check.target_feature.to_numpy(), check.target_label.to_numpy()):
-            raise ValueError("feature and label target columns disagree")
-    columns = ["sample_id", "month"] + (["target"] if "target" in labels.columns else [])
-    merged = features.merge(labels[columns], on="sample_id", how="inner", suffixes=("", "_label"), validate="one_to_one")
-    if "target" not in merged.columns:
-        merged["target"] = merged.pop("target_label")
+    if features.sample_id.duplicated().any() or labels.sample_id.duplicated().any():
+        raise ValueError("sample_id must be unique in both feature and label files")
+    check = features[["sample_id", "month", "target"]].merge(
+        labels[["sample_id", "month", "target"]],
+        on="sample_id",
+        how="inner",
+        suffixes=("_feature", "_label"),
+        validate="one_to_one",
+    )
+    if len(check) != len(features) or len(check) != len(labels):
+        raise ValueError("feature and label files must contain exactly the same sample_id set")
+    if not np.array_equal(check.month_feature.to_numpy(), check.month_label.to_numpy()):
+        raise ValueError("feature and label month columns disagree")
+    if not np.array_equal(check.target_feature.to_numpy(), check.target_label.to_numpy()):
+        raise ValueError("feature and label target columns disagree")
+    merged = features.copy()
     merged = merged.sort_values("sample_id", kind="mergesort").reset_index(drop=True)
     if merged.sample_id.duplicated().any() or merged.month.isna().any():
         raise ValueError("sample_id must be unique and month must be complete")

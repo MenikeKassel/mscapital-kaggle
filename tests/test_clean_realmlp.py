@@ -8,6 +8,7 @@ from mscapital.models.realmlp import (
     _build_torch_classes,
     _parameter_groups,
     flat_anneal,
+    load_frame,
     uncentered_cosine_torch,
 )
 
@@ -75,3 +76,35 @@ def test_rq_fit_is_refit_dependent():
     right = RQKMeansEncoder(3, 3).fit(second)
     assert not np.array_equal(left.encode(first), right.encode(first))
     assert left.encode(first).shape == (30, 3)
+
+
+def test_load_frame_requires_exact_id_month_and_target_alignment(tmp_path):
+    features = pd.DataFrame(
+        {
+            "sample_id": [2, 1],
+            "month": [1, 0],
+            "target": [0.2, 0.1],
+            "feature": [20.0, 10.0],
+        }
+    )
+    labels = features[["sample_id", "month", "target"]].copy()
+    feature_path = tmp_path / "features.parquet"
+    label_path = tmp_path / "labels.feather"
+    features.to_parquet(feature_path)
+    labels.to_feather(label_path)
+
+    frame = load_frame(feature_path, label_path)
+    assert frame.sample_id.tolist() == [1, 2]
+    assert frame.month.tolist() == [0, 1]
+    assert frame.target.tolist() == [0.1, 0.2]
+
+    labels.loc[0, "month"] = 9
+    labels.to_feather(label_path)
+    with np.testing.assert_raises_regex(ValueError, "month columns disagree"):
+        load_frame(feature_path, label_path)
+
+    labels = features[["sample_id", "month", "target"]].copy()
+    labels.loc[0, "sample_id"] = 99
+    labels.to_feather(label_path)
+    with np.testing.assert_raises_regex(ValueError, "same sample_id set"):
+        load_frame(feature_path, label_path)
