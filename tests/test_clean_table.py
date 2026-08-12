@@ -11,6 +11,7 @@ from mscapital.models.clean_table import (
     CleanTableConfig,
     R2_REPLACEMENTS,
     StandardClip,
+    TABLE_COMPONENT_WEIGHTS,
     TableFrame,
     apply_r2,
     run_outer,
@@ -29,6 +30,11 @@ def test_r2_replaces_exactly_eight_directional_features():
     np.testing.assert_array_equal(result["untouched"], values["untouched"])
     for output, (numerator, denominator, offset) in R2_REPLACEMENTS.items():
         np.testing.assert_allclose(result[output], values[numerator] / (values[denominator] + offset))
+
+
+def test_table_component_weights_are_frozen_and_sum_to_one():
+    assert TABLE_COMPONENT_WEIGHTS == {"lgb": 0.2, "cat": 0.5, "mlp": 0.3}
+    assert sum(TABLE_COMPONENT_WEIGHTS.values()) == 1.0
 
 
 def test_standard_clip_state_is_train_only_and_handles_missing():

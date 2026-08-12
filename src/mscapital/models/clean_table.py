@@ -38,6 +38,7 @@ R2_REPLACEMENTS: dict[str, tuple[str, str, float]] = {
     "m_sp_mean_60": ("m_sp_mean_60", "m_mid_mean_60", 1e-8),
     "m_sp_mean_180": ("m_sp_mean_180", "m_mid_mean_180", 1e-8),
 }
+TABLE_COMPONENT_WEIGHTS = {"lgb": 0.2, "cat": 0.5, "mlp": 0.3}
 
 
 def _stable_file_fingerprint(path: str | Path, sample_bytes: int = 1 << 20) -> str:
@@ -213,6 +214,21 @@ def _lgb_metric(pred: np.ndarray, dataset: Any) -> tuple[str, float, bool]:
     return "cosine_uncentered", cosine_uncentered(pred, dataset.get_label()), True
 
 
+def _lgb_params(cfg: CleanTableConfig) -> dict[str, Any]:
+    return {
+        "objective": "regression", "metric": "None", "learning_rate": cfg.learning_rate,
+        "num_leaves": 64, "min_data_in_leaf": 300, "feature_fraction": 0.8,
+        "bagging_fraction": 0.8, "bagging_freq": 5, "lambda_l2": 5.0,
+        "max_bin": 255, "verbose": -1, "num_threads": cfg.threads, "seed": cfg.seed,
+    }
+
+
+def _table_blend(predictions: Mapping[str, np.ndarray]) -> np.ndarray:
+    if set(TABLE_COMPONENT_WEIGHTS) - set(predictions):
+        raise ValueError("table blend requires lgb, cat, and mlp predictions")
+    return sum(TABLE_COMPONENT_WEIGHTS[name] * predictions[name] for name in TABLE_COMPONENT_WEIGHTS)
+
+
 class _CatCosine:
     def is_max_optimal(self) -> bool:
         return True
@@ -229,12 +245,7 @@ class _CatCosine:
 def _fit_lgb_inner(x: np.ndarray, y: np.ndarray, xv: np.ndarray, yv: np.ndarray, cfg: CleanTableConfig):
     import lightgbm as lgb
 
-    params = {
-        "objective": "regression", "metric": "None", "learning_rate": cfg.learning_rate,
-        "num_leaves": 64, "min_data_in_leaf": 300, "feature_fraction": 0.8,
-        "bagging_fraction": 0.8, "bagging_freq": 5, "lambda_l2": 5.0,
-        "max_bin": 255, "verbose": -1, "num_threads": cfg.threads, "seed": cfg.seed,
-    }
+    params = _lgb_params(cfg)
     history: dict[str, Any] = {}
     train = lgb.Dataset(x, y)
     valid = lgb.Dataset(xv, yv, reference=train)
@@ -248,13 +259,7 @@ def _fit_lgb_inner(x: np.ndarray, y: np.ndarray, xv: np.ndarray, yv: np.ndarray,
 def _fit_lgb_refit(x: np.ndarray, y: np.ndarray, xv: np.ndarray, steps: int, cfg: CleanTableConfig) -> np.ndarray:
     import lightgbm as lgb
 
-    params = {
-        "objective": "regression", "metric": "None", "learning_rate": cfg.learning_rate,
-        "num_leaves": 64, "min_data_in_leaf": 300, "feature_fraction": 0.8,
-        "bagging_fraction": 0.8, "bagging_freq": 5, "lambda_l2": 5.0,
-        "max_bin": 255, "verbose": -1, "num_threads": cfg.threads, "seed": cfg.seed,
-    }
-    return lgb.train(params, lgb.Dataset(x, y), steps).predict(xv)
+    return lgb.train(_lgb_params(cfg), lgb.Dataset(x, y), steps).predict(xv)
 
 
 def _catboost_class():
@@ -426,7 +431,7 @@ def run_outer(
         steps["mlp"][str(seed)] = best
         history["mlp"][str(seed)] = seed_history
     inner["mlp"] = np.mean(mlp_inner, axis=0)
-    inner["blend"] = 0.2 * inner["lgb"] + 0.5 * inner["cat"] + 0.3 * inner["mlp"]
+    inner["blend"] = _table_blend(inner)
 
     xr, yr = frame.values[masks["refit"]], frame.target[masks["refit"]]
     xo, yo = frame.values[masks["outer"]], frame.target[masks["outer"]]
@@ -445,7 +450,7 @@ def run_outer(
         mlp_outer.append(pred)
         refit_history[str(seed)] = seed_history
     outer["mlp"] = np.mean(mlp_outer, axis=0)
-    outer["blend"] = 0.2 * outer["lgb"] + 0.5 * outer["cat"] + 0.3 * outer["mlp"]
+    outer["blend"] = _table_blend(outer)
     if not all(np.isfinite(pred).all() for pred in outer.values()):
         raise ValueError("outer predictions must be finite")
 
