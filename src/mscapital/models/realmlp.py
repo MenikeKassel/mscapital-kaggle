@@ -168,7 +168,7 @@ class CleanRealMLPPreprocessor:
         self.feature_names = tuple(feature_names)
         self.config = config
         self.categorical = tuple(c for c in config.categorical_columns if c in self.feature_names)
-        self.numeric_candidates = tuple(c for c in self.feature_names if c not in self.categorical)
+        self.numeric_candidates = tuple(c for c in self.feature_names if c not in self.config.categorical_columns)
         self.selected_numeric: tuple[str, ...] = ()
         self.quantile_edges: dict[str, np.ndarray] = {}
         self.medians: dict[str, float] = {}
@@ -194,6 +194,11 @@ class CleanRealMLPPreprocessor:
             raise ValueError("target length does not match training frame")
         if not np.isfinite(y).all():
             raise ValueError("training target contains NaN/Inf")
+        self.categorical = tuple(
+            name for name in self.categorical
+            if sum(_stable_key(value) is not None for value in frame[name]) > 1
+        )
+        self.numeric_candidates = tuple(c for c in self.feature_names if c not in self.config.categorical_columns)
         numeric = np.asarray(frame[list(self.numeric_candidates)], dtype=np.float64)
         if numeric.ndim != 2:
             raise ValueError("numeric feature matrix must be two-dimensional")
@@ -816,7 +821,8 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
         "preprocessing": {"inner_state_hash": inner_pre.state_hash, "refit_state_hash": refit_pre.state_hash, "feature_hash": feature_hash(list(refit_pre.selected_numeric) + list(refit_pre.categorical)), "n_inner_train": int(inner_train_mask.sum()), "n_inner_tune": int(inner_tune_mask.sum()), "n_refit": int(refit_mask.sum()), "n_outer_valid": int(outer_mask.sum())},
         "runtime_seconds": time.perf_counter() - started,
     }
-    manifest = ExperimentManifest(experiment_id=f"clean-realmlp-v2a-{outer_name.lower()}", status="complete", train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"])
+    config_payload = json.dumps(asdict(cfg), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    manifest = ExperimentManifest(experiment_id=f"clean-realmlp-v2a-{outer_name.lower()}", status="complete", config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"])
     manifest.data_fingerprints = {Path(path).name: _stable_file_fingerprint(path) for path in data_paths if Path(path).exists()}
     manifest.write(output)
     (output / "training_history.json").write_text(json.dumps({"inner": inner_result.history, "refit": refit_history}, indent=2), encoding="utf-8")
