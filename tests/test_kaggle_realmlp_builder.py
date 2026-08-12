@@ -34,3 +34,17 @@ def test_generic_builder_embeds_canonical_config_and_gpu_metadata(tmp_path):
     assert metadata["id"] == "kasselmenike/mscapital-c2-ceiling-30-pseudo"
     assert metadata["enable_gpu"] is True
     assert metadata["dataset_sources"] == ["kasselmenike/msc-f0726-pq"]
+
+    inner_output = tmp_path / "inner-kernels"
+    builder.build(
+        repo,
+        inner_output,
+        config_path=repo / "configs" / "c2-realmlp-ceiling-30.json",
+        experiment_id="c2-realmlp-ceiling-30",
+        kernel_prefix="mscapital-c2-ceiling-30",
+        mode="inner",
+        outers=("H2",),
+    )
+    inner_kernel = (inner_output / "h2" / "kernel.py").read_text(encoding="utf-8")
+    compile(inner_kernel, "inner_kernel.py", "exec")
+    assert '_runner = run_inner_diagnostic if \'inner\' == "inner" else run_outer' in inner_kernel
