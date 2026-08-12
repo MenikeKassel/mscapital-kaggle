@@ -68,7 +68,8 @@ _cfg = RealMLPConfig(
     train_batch_size=256, eval_batch_size=2048, hidden_dim=24, dropout=0.01,
     ema_decay=0.998, gradient_clip=1.0, target_round=4, quantile_bins=40,
     correlation_threshold=0.90, low_target_correlation=0.0001,
-    rq_layers=3, rq_vocab_size=3, lambda_cos=0.01, lambda_rq=0.1,
+    rq_encoder_layers=3, rq_head_layers=2, rq_vocab_size=3,
+    lambda_cos=0.01, lambda_rq=0.1,
     label_noise_std=0.005, categorical_columns=("t_large_sell_95",), device="auto",
 )
 _train_matches = glob.glob("/kaggle/input/**/f0726_train_f32.parquet", recursive=True)

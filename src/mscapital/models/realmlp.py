@@ -71,7 +71,8 @@ class RealMLPConfig:
     quantile_bins: int = 40
     correlation_threshold: float = 0.90
     low_target_correlation: float = 0.0001
-    rq_layers: int = 3
+    rq_encoder_layers: int = 3
+    rq_head_layers: int = 2
     rq_vocab_size: int = 3
     lambda_cos: float = 0.01
     lambda_rq: float = 0.1
@@ -476,7 +477,7 @@ def _build_torch_classes():
                 NTPLinear(cfg.n_ens, 512, 512), nn.GELU(), self.dropout,
                 NTPLinear(cfg.n_ens, 512, 128), nn.GELU(), self.dropout,
             )
-            self.code_heads = nn.ModuleList([NTPLinear(cfg.n_ens, 128, cfg.rq_vocab_size) for _ in range(cfg.rq_layers)])
+            self.code_heads = nn.ModuleList([NTPLinear(cfg.n_ens, 128, cfg.rq_vocab_size) for _ in range(cfg.rq_head_layers)])
             self.reg_head = NTPLinear(cfg.n_ens, 128, 1)
             self.register_buffer("feature_mask", self._create_mask(total_dim))
 
@@ -612,7 +613,7 @@ def train_inner(x_train, c_train, y_train, x_tune, c_tune, y_tune, cfg: RealMLPC
     torch, _, F, RealMLPRQ = _build_torch_classes()
     _set_seed(cfg.seed)
     device = torch.device("cuda" if cfg.device == "auto" and torch.cuda.is_available() else ("cpu" if cfg.device == "auto" else cfg.device))
-    rq = RQKMeansEncoder(cfg.rq_layers, cfg.rq_vocab_size).fit(y_train)
+    rq = RQKMeansEncoder(cfg.rq_encoder_layers, cfg.rq_vocab_size).fit(y_train)
     train_codes = rq.encode(y_train)
     # One extra category is reserved for the fold-fitted unknown/missing
     # sentinel.  Its size is derived from train only; validation categories
@@ -679,7 +680,7 @@ def train_refit(x_train, c_train, y_train, progress_limit: float, cfg: RealMLPCo
     torch, _, F, RealMLPRQ = _build_torch_classes()
     _set_seed(cfg.seed)
     device = torch.device("cuda" if cfg.device == "auto" and torch.cuda.is_available() else ("cpu" if cfg.device == "auto" else cfg.device))
-    rq = RQKMeansEncoder(cfg.rq_layers, cfg.rq_vocab_size).fit(y_train)
+    rq = RQKMeansEncoder(cfg.rq_encoder_layers, cfg.rq_vocab_size).fit(y_train)
     codes_np = rq.encode(y_train)
     cat_dims = [int(np.max(c_train[:, j]) + 2) if c_train.shape[1] else 1 for j in range(c_train.shape[1])]
     model = RealMLPRQ(x_train.shape[1], cat_dims, cfg).to(device)
@@ -835,7 +836,7 @@ def _train_refit_predict(x_train, c_train, y_train, x_valid, c_valid, progress_l
     torch, _, F, RealMLPRQ = _build_torch_classes()
     _set_seed(cfg.seed)
     device = torch.device("cuda" if cfg.device == "auto" and torch.cuda.is_available() else ("cpu" if cfg.device == "auto" else cfg.device))
-    rq = RQKMeansEncoder(cfg.rq_layers, cfg.rq_vocab_size).fit(y_train)
+    rq = RQKMeansEncoder(cfg.rq_encoder_layers, cfg.rq_vocab_size).fit(y_train)
     codes_np = rq.encode(y_train)
     cat_dims = [int(np.max(c_train[:, j]) + 2) if c_train.shape[1] else 1 for j in range(c_train.shape[1])]
     model = RealMLPRQ(x_train.shape[1], cat_dims, cfg).to(device)

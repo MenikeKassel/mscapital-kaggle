@@ -54,6 +54,9 @@ def test_half_mask_and_legacy_optimizer_grouping():
     groups = _parameter_groups(model, torch, cfg)
     assert len(groups) == 5
     assert all(group["params"] for group in groups)
+    assert cfg.rq_encoder_layers == 3
+    assert cfg.rq_head_layers == 2
+    assert len(model.code_heads) == 2
 
 
 def test_uncentered_cosine_zero_norm_is_finite_and_schedule_is_explicit():
