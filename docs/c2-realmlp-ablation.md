@@ -50,3 +50,12 @@ individual gains are not assumed additive.
 
 No C2 command submits to Kaggle. Predictions, weights, logs, credentials, and
 machine-specific paths remain private artifacts.
+
+## Completed result
+
+The 30-epoch schedule passed both frozen gates: 3/3 positive distinct inner
+searches with mean delta `+0.004773214`, followed by 4/4 positive outer stress
+tests with mean delta `+0.002593728` and worst delta `+0.000339307`.
+
+See [`c2-realmlp-results.md`](c2-realmlp-results.md) for the full diagnostics
+and the single-variable ablation outcomes.
