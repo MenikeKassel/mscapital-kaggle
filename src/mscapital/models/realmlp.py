@@ -1158,6 +1158,8 @@ def compare_outer_experiments(
             baseline_pred = np.asarray(baseline["pred"], dtype=np.float64)
             candidate_pred = np.asarray(candidate["pred"], dtype=np.float64)
             target = np.asarray(baseline["target"], dtype=np.float64)
+        if not np.isfinite(baseline_pred).all():
+            raise ValueError(f"{outer} baseline contains NaN or infinite predictions")
         if not np.isfinite(candidate_pred).all():
             raise ValueError(f"{outer} candidate contains NaN or infinite predictions")
         baseline_score = cosine_uncentered(baseline_pred, target)
@@ -1237,12 +1239,21 @@ def compare_inner_diagnostics(
         split = NESTED_SPLITS[outer]
         baseline_history_path = root / baseline_id / outer / "training_history.json"
         candidate_history_path = root / candidate_id / outer / "training_history.json"
+        baseline_manifest_path = root / baseline_id / outer / "manifest.json"
         candidate_manifest_path = root / candidate_id / outer / "manifest.json"
-        if not baseline_history_path.exists() or not candidate_history_path.exists() or not candidate_manifest_path.exists():
+        if (
+            not baseline_history_path.exists()
+            or not candidate_history_path.exists()
+            or not baseline_manifest_path.exists()
+            or not candidate_manifest_path.exists()
+        ):
             raise FileNotFoundError(f"missing inner diagnostic artifacts for {outer}")
         baseline_history = json.loads(baseline_history_path.read_text(encoding="utf-8"))["inner"]
         candidate_history = json.loads(candidate_history_path.read_text(encoding="utf-8"))["inner"]
+        baseline_manifest = json.loads(baseline_manifest_path.read_text(encoding="utf-8"))
         candidate_manifest = json.loads(candidate_manifest_path.read_text(encoding="utf-8"))
+        if baseline_manifest.get("environment") != candidate_manifest.get("environment"):
+            raise ValueError(f"{outer} candidate environment does not match baseline")
         if tuple(candidate_manifest.get("train_months") or ()) != split.inner_train.as_tuple():
             raise ValueError(f"{outer} candidate inner train months do not match the registry")
         if tuple(candidate_manifest.get("valid_months") or ()) != split.inner_tune.as_tuple():

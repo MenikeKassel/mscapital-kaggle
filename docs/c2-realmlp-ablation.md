@@ -24,6 +24,11 @@ still pass the frozen C2 outer gate below.
 
 ## Single-variable matrix
 
+Each single-variable candidate first runs the same three distinct inner
+searches (PSEUDO, H2, and T3) and uses the D0 screening gate. Candidates that
+fail this pre-screen do not consume four formal outer runs. A survivor becomes
+a formal candidate and must then pass the frozen outer gate below.
+
 | ID | Changed field | Candidate | C1 reference |
 |---|---|---|---|
 | C2-O | optimizer grouping | first `NTPLinear` (`shared.2.weight`) | legacy `shared.0.weight` LayerNorm quirk |
@@ -32,7 +37,7 @@ still pass the frozen C2 outer gate below.
 | C2-TR | training target | raw target | round(4) |
 
 All other fields remain equal to C1. Inner tune chooses best progress; each
-formal candidate is then reinitialized, refit with its own fold-local
+formal survivor is then reinitialized, refit with its own fold-local
 preprocessing/RQ state, and scored once on each registered outer.
 
 ## Frozen outer gate

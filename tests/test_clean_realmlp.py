@@ -313,8 +313,22 @@ def test_c2_comparison_requires_alignment_and_applies_frozen_gate(tmp_path):
     broken = np.load(tmp_path / "candidate" / "T4" / "predictions.npz")
     payload = {key: broken[key] for key in broken.files}
     payload["sample_id"] = payload["sample_id"][::-1]
+    np.savez_compressed(
+        tmp_path / "candidate" / "T4" / "predictions.npz", **payload
+    )
     np.savez_compressed(tmp_path / "candidate" / "T4" / "predictions.npz", **payload)
     with np.testing.assert_raises_regex(ValueError, "sample_id"):
+        compare_outer_experiments(tmp_path, "baseline", "candidate")
+
+    payload["sample_id"] = payload["sample_id"][::-1]
+    baseline_t3 = np.load(tmp_path / "baseline" / "T3" / "predictions.npz")
+    baseline_payload = {key: baseline_t3[key] for key in baseline_t3.files}
+    baseline_payload["pred"] = np.asarray(baseline_payload["pred"], dtype=float)
+    baseline_payload["pred"][0] = np.nan
+    np.savez_compressed(
+        tmp_path / "baseline" / "T3" / "predictions.npz", **baseline_payload
+    )
+    with np.testing.assert_raises_regex(ValueError, "baseline contains"):
         compare_outer_experiments(tmp_path, "baseline", "candidate")
 
 
@@ -347,7 +361,14 @@ def test_c2_inner_screening_uses_only_registered_histories(tmp_path):
                 {
                     "train_months": list(split.inner_train.as_tuple()),
                     "valid_months": list(split.inner_tune.as_tuple()),
+                    "environment": {"accelerator": {"device": "same-gpu"}},
                 }
+            ),
+            encoding="utf-8",
+        )
+        (baseline_dir / "manifest.json").write_text(
+            json.dumps(
+                {"environment": {"accelerator": {"device": "same-gpu"}}}
             ),
             encoding="utf-8",
         )
@@ -356,3 +377,15 @@ def test_c2_inner_screening_uses_only_registered_histories(tmp_path):
     assert report["gate"]["passed"] is True
     assert report["gate"]["positive_inner"] == 3
     assert all(row["candidate_best_epoch"] == 20 for row in report["outer"])
+
+    mismatched = json.loads(
+        (tmp_path / "candidate" / "H2" / "manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    mismatched["environment"]["accelerator"]["device"] = "other-gpu"
+    (tmp_path / "candidate" / "H2" / "manifest.json").write_text(
+        json.dumps(mismatched), encoding="utf-8"
+    )
+    with np.testing.assert_raises_regex(ValueError, "environment does not match"):
+        compare_inner_diagnostics(tmp_path, "baseline", "candidate")
