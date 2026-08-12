@@ -14,9 +14,9 @@ dependencies = [
 
 [project.optional-dependencies]
 yaml = ["PyYAML>=6"]
-models = ["catboost>=1.2", "scikit-learn>=1.2"]
+models = ["catboost>=1.2", "lightgbm>=4", "pandas>=2", "scikit-learn>=1.2", "torch>=2.2"]
 clean-realmlp = ["pandas>=2", "scikit-learn>=1.2", "torch>=2.2"]
-dev = ["pytest>=7", "pandas>=2", "scikit-learn>=1.2", "torch>=2.2"]
+dev = ["pytest>=7", "catboost>=1.2", "lightgbm>=4", "pandas>=2", "scikit-learn>=1.2", "torch>=2.2"]
 
 [project.scripts]
 mscapital = "mscapital.cli:main"
@@ -28,4 +28,4 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]

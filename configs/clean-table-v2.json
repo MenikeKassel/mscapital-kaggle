@@ -1,0 +1,21 @@
+{
+  "protocol": "protocol-v2",
+  "data_root": ".",
+  "features_path": "processed/train_features.parquet",
+  "micro_path": "processed/micro_features_train.parquet",
+  "labels_path": "raw/train/label.feather",
+  "artifact_root": "output/experiments",
+  "seed": 0,
+  "lgb_iterations": 10000,
+  "cat_iterations": 10000,
+  "early_stopping_rounds": 200,
+  "learning_rate": 0.02,
+  "mlp_epochs": 30,
+  "mlp_seeds": [2026, 7, 123],
+  "mlp_hidden": 256,
+  "mlp_dropout": 0.2,
+  "mlp_batch_size": 2048,
+  "eval_batch_size": 8192,
+  "threads": 8,
+  "device": "auto"
+}

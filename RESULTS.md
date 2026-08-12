@@ -197,6 +197,15 @@ CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和。
 - 原始尺度 PSEUDO 最优约 `w_RealMLP=0.03`（0.141753），只作 forensic 诊断；不据此提交、不继续 Public LB 权重扫描。
 - 产物：`output/rlps_v12/realmlp_pseudo_pred.npz`、`v5_table_pseudo_pred.npz`、`v7_pseudo_diagnostics.json`。
 
+## Protocol-v2 C3 Clean Table (2026-08-13)
+
+- 四折可信 outer: PSEUDO **0.135051** / H2 **0.134216** / T3 **0.135454** / T4 **0.150389**；描述性均值 **0.138777**。
+- PSEUDO 相对 legacy v5 `0.134871` 仅 `+0.000180`，prediction corr `0.9922`：历史 Table 结论基本真实。
+- H2/T3 在完全相同 m51-60 target 上差 `+0.001238`，增加 m41-50 历史对 expanding refit 有稳定价值。
+- LGBM/CatBoost/3-seed MLP 固定 `0.2/0.5/0.3` blend 四个 outer 均优于任一单模。
+- Table 与 C2 30-epoch RealMLP outer corr 为 `0.81-0.85`，但 RealMLP std 是 Table 的 `34-42x`；C4 必须在 inner 上比较 raw/std/RMS。
+- 详见 `docs/c3-clean-table-results.md`；未创建 Kaggle competition submission。
+
 ## 负面结果
 
 | ID | 实验 | 结果 | 教训 |
