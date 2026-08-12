@@ -16,7 +16,7 @@ from typing import Any, Mapping
 
 
 def _path(value: str | os.PathLike[str] | None, fallback: str) -> Path:
-    return Path(value if value is not None else os.environ.get(fallback, ".")).expanduser()
+    return Path(os.environ.get(fallback, str(value) if value is not None else ".")).expanduser()
 
 
 @dataclass(frozen=True)
@@ -26,7 +26,11 @@ class ProjectConfig:
         default_factory=lambda: _path(None, "MSCAP_REFERENCE_ROOT")
     )
     artifact_root: Path = field(
-        default_factory=lambda: _path("output/experiments", "MSCAP_ARTIFACT_ROOT")
+        default_factory=lambda: (
+            _path(None, "MSCAP_ARTIFACT_ROOT")
+            if os.environ.get("MSCAP_ARTIFACT_ROOT") is not None
+            else Path("output/experiments")
+        )
     )
     protocol: str = "protocol-v2"
     target_round: int | None = 4

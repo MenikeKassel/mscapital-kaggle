@@ -12,8 +12,9 @@ import numpy as np
 from .artifacts import ExperimentManifest, save_predictions
 from .config import config_hash, load_config
 from .features.lob_geometry import build_lob_geometry
-from .features.ofi import build_m01_features
-from .metrics import cosine_uncentered
+from .features.ofi import build_m01_features, select_m01_stage
+from .metrics import cosine_uncentered, normalize_prediction
+from .diagnostics import prediction_diagnostics, drift_report
 from .residual import OOFBlock, build_canonical_oof, outer_residual, rolling_window_spec
 from .splits import NESTED_SPLITS, OUTER_SPLITS
 
@@ -61,7 +62,7 @@ def _cmd_clean_baseline(args: argparse.Namespace) -> None:
     directory = cfg.artifact_root / experiment_id
     manifest = ExperimentManifest(
         experiment_id=experiment_id,
-        status="protocol-validated",
+        status="scaffold-validated",
         protocol=cfg.protocol,
         config_hash=config_hash(cfg),
         diagnostics={
@@ -117,10 +118,73 @@ def _cmd_build_residual_oof(args: argparse.Namespace) -> None:
 def _cmd_build_ofi(args: argparse.Namespace) -> None:
     order, transaction, market = (_read_arrow(path) for path in (args.order, args.transaction, args.market))
     ids, names, values = build_m01_features(order, transaction, market)
+    if args.stage:
+        names, values = select_m01_stage(names, values, args.stage)
     save_predictions(args.output, sample_id=ids, pred=values)
     metadata = Path(args.output).with_suffix(".json")
     metadata.write_text(json.dumps({"feature_names": names, "n_rows": int(ids.size)}, indent=2), encoding="utf-8")
     print(json.dumps({"output": str(args.output), "rows": int(ids.size), "features": len(names)}, indent=2))
+
+
+def _cmd_run_alpha(args: argparse.Namespace) -> None:
+    baseline = np.load(args.baseline)
+    residual = np.load(args.residual)
+    base = np.asarray(baseline[args.pred_key], dtype=float).reshape(-1)
+    alpha_pred = np.asarray(residual[args.pred_key], dtype=float).reshape(-1)
+    if base.shape != alpha_pred.shape:
+        raise ValueError("baseline and residual predictions must have equal shapes")
+    if not np.isfinite(base).all() or not np.isfinite(alpha_pred).all():
+        raise ValueError("baseline and residual predictions must be finite")
+    if args.id_key in baseline and args.id_key in residual:
+        base_ids = np.asarray(baseline[args.id_key]).reshape(-1)
+        residual_ids = np.asarray(residual[args.id_key]).reshape(-1)
+        if not np.array_equal(base_ids, residual_ids):
+            raise ValueError("baseline and residual sample_id arrays must be identically aligned")
+    target = None
+    if args.target:
+        target = np.asarray(np.load(args.target)[args.target_key], dtype=float).reshape(-1)
+        if target.shape != base.shape:
+            raise ValueError("target must match prediction shape")
+    b, _ = normalize_prediction(base, "rms")
+    r, _ = normalize_prediction(alpha_pred, "rms")
+    final = b + float(args.alpha) * r
+    ids = np.asarray(baseline[args.id_key]) if args.id_key in baseline else np.arange(base.size)
+    save_predictions(args.output, sample_id=ids, pred=final, target=target)
+    report = prediction_diagnostics(final, target) if target is not None else prediction_diagnostics(final)
+    if args.valid:
+        valid = np.asarray(np.load(args.valid)[args.pred_key], dtype=float)
+        report["drift"] = drift_report(valid, final)
+    Path(args.output).with_suffix(".json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
+def _cmd_analyze_lb142(args: argparse.Namespace) -> None:
+    arrays = []
+    labels = []
+    for item in args.member:
+        label, path = _parse_block(item)
+        data = np.load(path)
+        arrays.append(np.asarray(data[args.pred_key], dtype=float).reshape(-1))
+        labels.append(label)
+    if not arrays:
+        raise ValueError("at least one LB142 member is required")
+    if len({row.size for row in arrays}) != 1:
+        raise ValueError("LB142 members must be finite and have equal lengths")
+    matrix = np.vstack(arrays)
+    if not np.isfinite(matrix).all():
+        raise ValueError("LB142 members must be finite and have equal lengths")
+    corr = np.corrcoef(matrix)
+    centered = matrix - matrix.mean(axis=1, keepdims=True)
+    _, singular, _ = np.linalg.svd(centered, full_matrices=False)
+    explained = (singular ** 2) / max(float(np.sum(singular ** 2)), 1e-12)
+    result = {
+        "members": labels,
+        "pairwise_pearson": corr.tolist(),
+        "pca_explained": explained.tolist(),
+        "effective_rank_entropy": float(np.exp(-np.sum(explained * np.log(np.maximum(explained, 1e-12))))),
+    }
+    Path(args.output).write_text(json.dumps(result, indent=2), encoding="utf-8")
+    print(json.dumps(result, indent=2))
 
 
 def _cmd_build_geometry(args: argparse.Namespace) -> None:
@@ -155,11 +219,28 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--transaction", type=Path, required=True)
     p.add_argument("--market", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--stage", choices=("A", "B", "C", "D", "E", "F"))
     p.set_defaults(func=_cmd_build_ofi)
     p = sub.add_parser("build-geometry", help="build market-centered LOB geometry")
     p.add_argument("--market", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.set_defaults(func=_cmd_build_geometry)
+    p = sub.add_parser("run-alpha", help="combine an RMS baseline with a residual prediction")
+    p.add_argument("--baseline", type=Path, required=True)
+    p.add_argument("--residual", type=Path, required=True)
+    p.add_argument("--target", type=Path)
+    p.add_argument("--valid", type=Path)
+    p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--alpha", type=float, required=True)
+    p.add_argument("--pred-key", default="pred")
+    p.add_argument("--target-key", default="target")
+    p.add_argument("--id-key", default="sample_id")
+    p.set_defaults(func=_cmd_run_alpha)
+    p = sub.add_parser("analyze-lb142", help="PCA/correlation forensic report for prediction members")
+    p.add_argument("--member", action="append", required=True, help="NAME=NPZ")
+    p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--pred-key", default="pred")
+    p.set_defaults(func=_cmd_analyze_lb142)
     return parser
 
 

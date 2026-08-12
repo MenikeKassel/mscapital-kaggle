@@ -50,7 +50,13 @@ def prediction_diagnostics(
         p, r = np.asarray(pred, dtype=float), np.asarray(reference, dtype=float)
         if p.shape != r.shape:
             raise ValueError("reference shape must match prediction")
-        report["corr_reference"] = float(np.corrcoef(p.reshape(-1), r.reshape(-1))[0, 1])
+        p, r = p.reshape(-1), r.reshape(-1)
+        if p.size == 0 or not np.isfinite(p).all() or not np.isfinite(r).all():
+            report["corr_reference"] = None
+        elif np.std(p) == 0.0 or np.std(r) == 0.0:
+            report["corr_reference"] = 0.0
+        else:
+            report["corr_reference"] = float(np.corrcoef(p, r)[0, 1])
     return report
 
 

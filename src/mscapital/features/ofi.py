@@ -7,7 +7,6 @@ the 100M-row raw files in every test.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -73,7 +72,7 @@ def quote_ofi(
 def _window_mask(seconds_before_predict: np.ndarray, window: float) -> np.ndarray:
     # The raw files count backwards from the prediction instant.  The
     # direction is irrelevant for an inclusive lookback window.
-    return np.isfinite(seconds_before_predict) & (seconds_before_predict <= window)
+    return np.isfinite(seconds_before_predict) & (seconds_before_predict >= 0.0) & (seconds_before_predict <= window)
 
 
 def _safe_ratio(numerator: float, denominator: float) -> float:
@@ -166,10 +165,11 @@ def build_m01_features(
         order_seconds = _array(o.get("seconds_before_predict", []), float)
         trade_seconds = _array(t.get("seconds_before_predict", []), float)
         # Quote OFI requires chronological order; raw files are often stored
-        # newest-first, so sort each sample by seconds-before ascending.
+        # seconds-before is measured backwards from prediction: larger values
+        # are older, so chronological order is descending.
         order_volume = _array(o.get("volume", []), float)
         trade_volume = _array(t.get("volume", []), float)
-        market_order = np.argsort(ms)
+        market_order = np.argsort(ms)[::-1]
         ms = ms[market_order]
         bid1 = _array(m.get("bid_price_1", []), float)[market_order]
         bv1 = _array(m.get("bid_volume_1", []), float)[market_order]
@@ -199,3 +199,42 @@ def build_m01_features(
     names = sorted({name for row in rows for name in row})
     values = np.array([[row.get(name, 0.0) for name in names] for row in rows], dtype=np.float32)
     return ids, names, values
+
+
+def select_m01_stage(
+    names: Sequence[str], values: np.ndarray, stage: str
+) -> tuple[list[str], np.ndarray]:
+    """Select the cumulative M01 ablation stage A-F."""
+
+    stage = stage.upper()
+    if stage not in {"A", "B", "C", "D", "E", "F"}:
+        raise ValueError("M01 stage must be one of A, B, C, D, E or F")
+    raw_windows = {"5", "15", "30", "60"}
+    keep: list[str] = []
+    for name in names:
+        def has_window(prefix: str) -> bool:
+            return name.startswith(prefix) and name[len(prefix):] in raw_windows
+
+        is_event = any(has_window(prefix) for prefix in (
+            "ofi_event_rate_", "trade_flow_rate_", "ofi_event_count_rate_", "trade_event_count_rate_"
+        ))
+        is_quote_l1 = has_window("quote_ofi_l1_rate_")
+        is_quote_l2 = has_window("quote_ofi_l2_rate_")
+        is_invariant = (
+            name.startswith(("ofi_depth_", "ofi_volume_", "ofi_trade_volume_", "quote_ofi_l1_depth_", "quote_ofi_l2_depth_"))
+            and name.rsplit("_", 1)[-1] in raw_windows
+        )
+        is_dynamic = any(token in name for token in ("fast_slow", "acceleration"))
+        is_cross = name.startswith(("order_trade_", "quote_trade_"))
+        allowed = (
+            is_event
+            or (stage in {"B", "C", "D", "E", "F"} and is_quote_l1)
+            or (stage in {"C", "D", "E", "F"} and is_quote_l2)
+            or (stage in {"D", "E", "F"} and is_invariant)
+            or (stage in {"E", "F"} and is_dynamic)
+            or (stage == "F" and is_cross)
+        )
+        if allowed:
+            keep.append(name)
+    indices = [names.index(name) for name in keep]
+    return keep, np.asarray(values)[:, indices]

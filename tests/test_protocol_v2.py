@@ -6,11 +6,22 @@ import numpy as np
 import pytest
 
 from mscapital.artifacts import ExperimentManifest
+from mscapital.cli import main
 from mscapital.ensemble import EnsembleCalibrator, NestedBlendFold, evaluate_nested_blend
 from mscapital.features.lob_geometry import lob_geometry_row
-from mscapital.features.ofi import quote_ofi, signed_order_flow, signed_trade_flow
+from mscapital.features.ofi import (
+    build_m01_features,
+    quote_ofi,
+    signed_order_flow,
+    signed_trade_flow,
+)
+from mscapital.features.ofi import select_m01_stage
 from mscapital.metrics import cosine_centered, cosine_uncentered
-from mscapital.preprocessing import FoldSafeCategoricalEncoder, FoldSafePreprocessor
+from mscapital.preprocessing import (
+    FoldSafeCategoricalEncoder,
+    FoldSafePreprocessor,
+    prepare_target,
+)
 from mscapital.residual import OOFBlock, build_canonical_oof, outer_residual
 from mscapital.splits import NESTED_SPLITS, ROLLING_WINDOWS
 
@@ -70,6 +81,11 @@ def test_categorical_vocabulary_is_train_only() -> None:
     assert encoder.transform(["ask", "future", None]).tolist() == [1, 2, 2]
 
 
+def test_target_rounding_is_explicit() -> None:
+    assert prepare_target([0.123456, -0.123456], 4).tolist() == [0.1235, -0.1235]
+    assert prepare_target([0.123456], None).tolist() == [0.123456]
+
+
 def test_ofi_sign_convention_and_trade_flow() -> None:
     out = signed_order_flow([1, 1, 1, 1], [0, 0, 1, 1], [0, 1, 0, 1])
     assert out.tolist() == [1.0, -1.0, -1.0, 1.0]
@@ -88,6 +104,56 @@ def test_quote_ofi_movement_and_queue_change() -> None:
     assert np.isfinite(result).all()
 
 
+def test_m01_sorts_seconds_before_from_oldest_to_newest() -> None:
+    order = {
+        "sample_id": np.array([1]),
+        "seconds_before_predict": np.array([0.0]),
+        "volume": np.array([1.0]),
+        "side": np.array([0]),
+        "order_action": np.array([0]),
+    }
+    transaction = {
+        "sample_id": np.array([1]),
+        "seconds_before_predict": np.array([0.0]),
+        "volume": np.array([1.0]),
+        "side": np.array([0]),
+    }
+    market = {
+        "sample_id": np.array([1, 1]),
+        "seconds_before_predict": np.array([0.0, 60.0]),
+        "bid_price_1": np.array([101.0, 100.0]),
+        "bid_volume_1": np.array([20.0, 10.0]),
+        "ask_price_1": np.array([103.0, 102.0]),
+        "ask_volume_1": np.array([20.0, 10.0]),
+        "bid_price_2": np.array([100.0, 99.0]),
+        "bid_volume_2": np.array([10.0, 5.0]),
+        "ask_price_2": np.array([104.0, 103.0]),
+        "ask_volume_2": np.array([10.0, 5.0]),
+    }
+    _, names, values = build_m01_features(order, transaction, market)
+    value = values[0, names.index("quote_ofi_l1_rate_60")]
+    # Old quote [100,102] -> new quote [101,103] contributes positive queue.
+    assert value > 0.0
+
+
+def test_m01_stages_are_cumulative() -> None:
+    names = [
+        "ofi_event_rate_5",
+        "quote_ofi_l1_rate_5",
+        "quote_ofi_l2_rate_5",
+        "ofi_depth_5",
+        "ofi_event_rate_fast_slow_5_15",
+        "order_trade_gap_15",
+    ]
+    values = np.arange(len(names), dtype=np.float32)[None, :]
+    a_names, _ = select_m01_stage(names, values, "A")
+    c_names, _ = select_m01_stage(names, values, "C")
+    f_names, _ = select_m01_stage(names, values, "F")
+    assert a_names == ["ofi_event_rate_5"]
+    assert c_names == ["ofi_event_rate_5", "quote_ofi_l1_rate_5", "quote_ofi_l2_rate_5"]
+    assert f_names == names
+
+
 def test_lob_geometry_excludes_l1_relative_price_and_is_invariant() -> None:
     row = lob_geometry_row(99, 10, 101, 20, 98, 5, 102, 15)
     assert "lob_bid1_rel_mid_spread" not in row
@@ -97,24 +163,22 @@ def test_lob_geometry_excludes_l1_relative_price_and_is_invariant() -> None:
 
 def test_canonical_oof_is_unique_and_outer_beta_uses_only_visible_history() -> None:
     block_a = OOFBlock(
-        "m21_30_train20", np.array([1, 2]), np.array([21, 22]),
-        np.array([2.0, 4.0]), np.array([1.0, 2.0]), 20
+        "m21_30_train20", np.arange(1, 11), np.arange(21, 31),
+        np.arange(2.0, 22.0, 2.0), np.arange(1.0, 11.0), 20
     )
     block_b = OOFBlock(
-        "m31_40_train30", np.array([3, 4]), np.array([31, 32]),
-        np.array([6.0, 8.0]), np.array([3.0, 4.0]), 30
+        "m31_40_train30", np.arange(11, 21), np.arange(31, 41),
+        np.arange(22.0, 42.0, 2.0), np.arange(11.0, 21.0), 30
     )
     canonical = build_canonical_oof([block_a, block_b])
     view = outer_residual(canonical, "PSEUDO")
-    assert np.asarray(view["sample_id"]).tolist() == [1, 2, 3, 4]
+    assert np.asarray(view["sample_id"]).tolist() == list(range(1, 13))
     assert view["beta"] == pytest.approx(2.0)
     with pytest.raises(ValueError):
         build_canonical_oof([
             block_a,
-            OOFBlock(
-                "dup_train30", np.array([2]), np.array([31]),
-                np.array([4.0]), np.array([2.0]), 30
-            ),
+            block_b,
+            block_b,
         ])
 
 
@@ -144,3 +208,19 @@ def test_manifest_is_json_serializable(tmp_path) -> None:
     path = ExperimentManifest("test", scores={"cosine": 0.1}).write(tmp_path)
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["experiment_id"] == "test"
+
+
+def test_cli_run_alpha_aligns_ids_and_writes_diagnostics(tmp_path) -> None:
+    base = tmp_path / "base.npz"
+    residual = tmp_path / "residual.npz"
+    target = tmp_path / "target.npz"
+    np.savez(base, sample_id=np.array([1, 2, 3]), pred=np.array([1.0, 2.0, 3.0]))
+    np.savez(residual, sample_id=np.array([1, 2, 3]), pred=np.array([0.1, 0.2, 0.3]))
+    np.savez(target, target=np.array([1.0, 2.0, 3.0]))
+    output = tmp_path / "candidate.npz"
+    main([
+        "run-alpha", "--baseline", str(base), "--residual", str(residual),
+        "--target", str(target), "--alpha", "0.1", "--output", str(output),
+    ])
+    assert output.exists()
+    assert json.loads(output.with_suffix(".json").read_text())["prediction"]["finite"] == 3

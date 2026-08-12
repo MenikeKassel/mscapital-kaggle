@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Sequence
 
 import numpy as np
 
@@ -59,8 +59,8 @@ class EnsembleCalibrator:
     def transform(self, pred_a: object, pred_b: object) -> np.ndarray:
         if self.result is None:
             raise RuntimeError("fit must be called before transform")
-        a, _ = normalize_prediction(pred_a, self.result.method)
-        b, _ = normalize_prediction(pred_b, self.result.method)
+        a = np.asarray(pred_a, dtype=float).reshape(-1)
+        b = np.asarray(pred_b, dtype=float).reshape(-1)
         # Use the inner learned scales, even when a component is constant in the
         # outer set.  This is the critical no-re-fit invariant.
         if self.result.scale_a != 0:

@@ -28,6 +28,19 @@ class OOFBlock:
         months = np.asarray(self.month).reshape(-1)
         if months.size == 0 or months.min() <= self.source_train_end:
             raise ValueError(f"{self.name}: OOF contains a month not after source_train_end")
+        target = np.asarray(self.target, dtype=float).reshape(-1)
+        pred = np.asarray(self.baseline_oof, dtype=float).reshape(-1)
+        if not np.isfinite(target).all() or not np.isfinite(pred).all():
+            raise ValueError(f"{self.name}: target and baseline_oof must be finite")
+        # Accept descriptive names such as m21_30_train20 while checking the
+        # exact registered month interval and source boundary.
+        expected_by_end = {
+            20: (21, 30), 30: (31, 40), 40: (41, 50),
+            50: (51, 60), 60: (61, 70),
+        }
+        expected = expected_by_end.get(self.source_train_end)
+        if expected is None or set(np.asarray(months, dtype=int).tolist()) != set(range(expected[0], expected[1] + 1)):
+            raise ValueError(f"{self.name}: block does not match a registered rolling window")
 
 
 @dataclass(frozen=True)
@@ -47,6 +60,8 @@ class CanonicalOOF:
             raise ValueError("canonical OOF contains duplicate sample_id values")
         if not np.all(np.asarray(self.source_train_end) < np.asarray(self.month)):
             raise ValueError("canonical OOF contains future-leaking source_train_end")
+        if not np.isfinite(np.asarray(self.target, dtype=float)).all() or not np.isfinite(np.asarray(self.baseline_oof, dtype=float)).all():
+            raise ValueError("canonical OOF target and baseline_oof must be finite")
 
     def save(self, path: str | Path) -> Path:
         self.validate()

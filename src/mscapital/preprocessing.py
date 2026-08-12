@@ -14,6 +14,15 @@ from typing import Iterable, Sequence
 import numpy as np
 
 
+def prepare_target(target: object, target_round: int | None = 4) -> np.ndarray:
+    """Apply the explicit protocol target policy without mutating source data."""
+
+    values = np.asarray(target, dtype=np.float64).reshape(-1)
+    if not np.isfinite(values).all():
+        raise ValueError("target contains non-finite values")
+    return values if target_round is None else np.round(values, int(target_round))
+
+
 @dataclass
 class _ColumnState:
     name: str

@@ -33,6 +33,7 @@ class CatBoostResidualRegressor:
             learning_rate=self.learning_rate,
             depth=self.depth,
             l2_leaf_reg=self.l2_leaf_reg,
+            bootstrap_type="Bernoulli",
             loss_function="RMSE",
             random_seed=self.random_seed,
             verbose=False,

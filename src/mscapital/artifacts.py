@@ -18,7 +18,8 @@ def sha256_bytes(value: bytes) -> str:
 
 def array_hash(value: object) -> str:
     arr = np.asarray(value)
-    return sha256_bytes(np.ascontiguousarray(arr).tobytes())
+    payload = f"{arr.dtype.str}|{arr.shape}|".encode("ascii") + np.ascontiguousarray(arr).tobytes()
+    return sha256_bytes(payload)
 
 
 def feature_hash(names: list[str] | tuple[str, ...]) -> str:
