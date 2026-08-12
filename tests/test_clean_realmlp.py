@@ -108,3 +108,26 @@ def test_load_frame_requires_exact_id_month_and_target_alignment(tmp_path):
     labels.to_feather(label_path)
     with np.testing.assert_raises_regex(ValueError, "same sample_id set"):
         load_frame(feature_path, label_path)
+
+
+def test_load_frame_injects_label_month_when_feature_table_omits_it(tmp_path):
+    features = pd.DataFrame(
+        {"sample_id": [2, 1], "target": [0.2, 0.1], "feature": [20.0, 10.0]}
+    )
+    labels = pd.DataFrame(
+        {"sample_id": [1, 2], "month": [0, 1], "target": [0.1, 0.2]}
+    )
+    feature_path = tmp_path / "features.parquet"
+    label_path = tmp_path / "labels.feather"
+    features.to_parquet(feature_path)
+    labels.to_feather(label_path)
+
+    frame = load_frame(feature_path, label_path)
+    assert frame.sample_id.tolist() == [1, 2]
+    assert frame.month.tolist() == [0, 1]
+    assert frame.target.tolist() == [0.1, 0.2]
+
+    labels.loc[0, "target"] = 9.0
+    labels.to_feather(label_path)
+    with np.testing.assert_raises_regex(ValueError, "target columns disagree"):
+        load_frame(feature_path, label_path)
