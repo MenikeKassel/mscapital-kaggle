@@ -7,12 +7,12 @@ selection, and model refits inside the permitted historical months.
 
 ## Local smoke
 
-Use the project venv by absolute path and expose the source tree:
+From the repository root, expose the source tree and use the project venv:
 
 ```powershell
-$env:PYTHONPATH = 'D:\mscapital-kaggle\src'
-& 'D:\mscapital-kaggle\.venv\Scripts\python' -m mscapital clean-realmlp `
-  --config 'D:\mscapital-kaggle\configs\clean-realmlp-v2a.json' `
+$env:PYTHONPATH = "$PWD\src"
+& '.\.venv\Scripts\python' -m mscapital clean-realmlp `
+  --config '.\configs\clean-realmlp-v2a.json' `
   --outer ALL --device cuda --max-rows-per-month 512
 ```
 
@@ -26,20 +26,17 @@ kernels.
 Generate the four self-contained kernel directories:
 
 ```powershell
-& 'D:\mscapital-kaggle\.venv\Scripts\python' `
-  'D:\mscapital-kaggle\scripts\build_kaggle_c1.py' `
-  --repo 'D:\mscapital-kaggle' `
-  --output 'D:\mscapital-kaggle\output\kaggle_c1_kernels'
+& '.\.venv\Scripts\python' '.\scripts\build_kaggle_c1.py' `
+  --repo '.' --output '.\output\kaggle_c1_kernels'
 ```
 
 Authenticate the Kaggle CLI in the current user environment first. The push
 step is intentionally explicit and never submits a competition prediction:
 
 ```powershell
-& 'D:\mscapital-kaggle\.venv\Scripts\python' -m kaggle auth login
-& 'D:\mscapital-kaggle\.venv\Scripts\python' `
-  'D:\mscapital-kaggle\scripts\build_kaggle_c1.py' `
-  --repo 'D:\mscapital-kaggle' --push
+& '.\.venv\Scripts\python' -m kaggle auth login
+& '.\.venv\Scripts\python' '.\scripts\build_kaggle_c1.py' `
+  --repo '.' --push
 ```
 
 Each kernel writes `inner_predictions.npz`, `predictions.npz`,
@@ -48,12 +45,16 @@ working directory. Download those directories into the artifact root, then
 summarize locally:
 
 ```powershell
-& 'D:\mscapital-kaggle\.venv\Scripts\python' -m mscapital summarize-clean-realmlp `
-  --artifact-root 'D:\mscapital-kaggle\output\experiments' `
+& '.\.venv\Scripts\python' -m mscapital summarize-clean-realmlp `
+  --artifact-root '.\output\experiments' `
   --experiment-id clean-realmlp-v2a `
-  --legacy-pseudo 'D:\mscapital-kaggle\output\rlps_v12\realmlp_pseudo_pred.npz'
+  --legacy-pseudo '.\output\rlps_v12\realmlp_pseudo_pred.npz'
 ```
 
 The summary reports the four correlated outer stress tests, their arithmetic
 mean, and the PSEUDO-only comparison with legacy RealMLP. It does not freeze
 Clean Baseline v2 or launch C2 ablations.
+
+The completed C1 evidence and interpretation are recorded in
+[`c1-clean-realmlp-results.md`](c1-clean-realmlp-results.md). Predictions and
+model weights remain private artifacts and are not committed.

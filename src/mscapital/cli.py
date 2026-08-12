@@ -132,7 +132,8 @@ def _cmd_summarize_clean_realmlp(args: argparse.Namespace) -> None:
     from .models.realmlp import summarize_outer
 
     report = summarize_outer(args.artifact_root, args.experiment_id, args.legacy_pseudo)
-    print(json.dumps({"status": "complete", "mean_score": report["mean_score"], "report": str(Path(args.artifact_root) / f"{args.experiment_id}_report.json")}, indent=2))
+    report_name = f"{args.experiment_id.replace('-', '_')}_report.json"
+    print(json.dumps({"status": "complete", "mean_score": report["mean_score"], "report": str(Path(args.artifact_root) / report_name)}, indent=2))
 
 
 def _parse_block(value: str) -> tuple[str, Path]:

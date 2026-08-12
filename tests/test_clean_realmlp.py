@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import hashlib
+import json
 
 from mscapital.models.realmlp import (
     CleanRealMLPPreprocessor,
@@ -14,6 +15,7 @@ from mscapital.models.realmlp import (
     flat_anneal,
     load_frame,
     run_outer,
+    summarize_outer,
     uncentered_cosine_torch,
 )
 
@@ -193,3 +195,28 @@ def test_outer_rewrite_cannot_change_inner_or_refit_state(monkeypatch, tmp_path)
     assert first["preprocessing"]["inner_state_hash"] == second["preprocessing"]["inner_state_hash"]
     assert first["preprocessing"]["refit_state_hash"] == second["preprocessing"]["refit_state_hash"]
     assert first_captures == tuple(captures)
+
+
+def test_summary_uses_required_public_report_filenames(tmp_path):
+    root = tmp_path / "clean-realmlp-v2a"
+    for outer in ("PSEUDO", "H2", "T3", "T4"):
+        directory = root / outer
+        directory.mkdir(parents=True)
+        manifest = {
+            "experiment_id": f"clean-realmlp-v2a-{outer.lower()}",
+            "scores": {"cosine_uncentered": 0.1},
+            "best_step": 10,
+            "best_progress": 1.0,
+            "runtime_seconds": 1.0,
+            "diagnostics": {
+                "pearson": 0.1,
+                "nan_or_inf": 0,
+                "prediction": {"mean": 0.0, "std": 1.0, "nan_or_inf": 0},
+                "target": {"std": 1.0},
+            },
+        }
+        (directory / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    summarize_outer(tmp_path)
+    assert (tmp_path / "clean_realmlp_v2a_report.json").exists()
+    assert (tmp_path / "clean_realmlp_v2a_report.md").exists()

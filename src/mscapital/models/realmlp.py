@@ -937,7 +937,8 @@ def summarize_outer(artifact_root: str | Path, experiment_id: str = "clean-realm
             raise ValueError("legacy PSEUDO target is not exactly aligned with the downloaded clean PSEUDO prediction")
         report["legacy_pseudo_cosine"] = cosine_uncentered(legacy_pred, legacy_target)
         report["clean_vs_legacy_prediction_pearson"] = float(np.corrcoef(current_pred, legacy_pred)[0, 1]) if np.std(current_pred) and np.std(legacy_pred) else 0.0
-    target = root / f"{experiment_id}_report.json"
+    report_stem = f"{experiment_id.replace('-', '_')}_report"
+    target = root / f"{report_stem}.json"
     target.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     lines = [f"# {experiment_id}", "", "| Outer | Cosine | Pearson | Pred mean | Pred std | Target std | NaN/Inf | Best step | Best progress | Runtime (s) |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for row in rows:
