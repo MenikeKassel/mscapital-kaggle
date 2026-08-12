@@ -176,6 +176,13 @@ def _cmd_compare_realmlp(args: argparse.Namespace) -> None:
     print(json.dumps({"status": "complete", "gate": report["gate"]}, indent=2))
 
 
+def _cmd_compare_realmlp_inner(args: argparse.Namespace) -> None:
+    from .models.realmlp import compare_inner_diagnostics
+
+    report = compare_inner_diagnostics(args.artifact_root, args.baseline_id, args.candidate_id)
+    print(json.dumps({"status": "complete", "gate": report["gate"]}, indent=2))
+
+
 def _parse_block(value: str) -> tuple[str, Path]:
     if "=" not in value:
         raise argparse.ArgumentTypeError("block must be NAME=PATH")
@@ -336,6 +343,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--baseline-id", default="clean-realmlp-v2a")
     p.add_argument("--candidate-id", required=True)
     p.set_defaults(func=_cmd_compare_realmlp)
+    p = sub.add_parser("compare-realmlp-inner", help="apply the C2 three-inner screening gate")
+    p.add_argument("--artifact-root", type=Path, required=True)
+    p.add_argument("--baseline-id", default="clean-realmlp-v2a")
+    p.add_argument("--candidate-id", required=True)
+    p.set_defaults(func=_cmd_compare_realmlp_inner)
     p = sub.add_parser("build-residual-oof", help="merge unique rolling OOF blocks")
     p.add_argument("--block", action="append", required=True, help="NAME=PATH, name must include train end")
     p.add_argument("--output", type=Path, required=True)

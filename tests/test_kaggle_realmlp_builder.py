@@ -32,6 +32,7 @@ def test_generic_builder_embeds_canonical_config_and_gpu_metadata(tmp_path):
     assert '"mask_mode":"half"' in kernel
     assert 'experiment_id="c2-realmlp-ceiling-30"' in kernel
     assert metadata["id"] == "kasselmenike/mscapital-c2-ceiling-30-pseudo"
+    assert metadata["title"] == "mscapital-c2-ceiling-30 pseudo"
     assert metadata["enable_gpu"] is True
     assert metadata["dataset_sources"] == ["kasselmenike/msc-f0726-pq"]
 

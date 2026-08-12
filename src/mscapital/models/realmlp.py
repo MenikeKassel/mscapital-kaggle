@@ -1222,3 +1222,93 @@ def compare_outer_experiments(
     )
     json_path.with_suffix(".md").write_text("\n".join(lines), encoding="utf-8")
     return report
+
+
+def compare_inner_diagnostics(
+    artifact_root: str | Path,
+    baseline_id: str,
+    candidate_id: str,
+) -> dict[str, Any]:
+    """Compare the three distinct inner searches without reading any outer predictions."""
+
+    root = Path(artifact_root)
+    rows: list[dict[str, Any]] = []
+    for outer in ("PSEUDO", "H2", "T3"):
+        split = NESTED_SPLITS[outer]
+        baseline_history_path = root / baseline_id / outer / "training_history.json"
+        candidate_history_path = root / candidate_id / outer / "training_history.json"
+        candidate_manifest_path = root / candidate_id / outer / "manifest.json"
+        if not baseline_history_path.exists() or not candidate_history_path.exists() or not candidate_manifest_path.exists():
+            raise FileNotFoundError(f"missing inner diagnostic artifacts for {outer}")
+        baseline_history = json.loads(baseline_history_path.read_text(encoding="utf-8"))["inner"]
+        candidate_history = json.loads(candidate_history_path.read_text(encoding="utf-8"))["inner"]
+        candidate_manifest = json.loads(candidate_manifest_path.read_text(encoding="utf-8"))
+        if tuple(candidate_manifest.get("train_months") or ()) != split.inner_train.as_tuple():
+            raise ValueError(f"{outer} candidate inner train months do not match the registry")
+        if tuple(candidate_manifest.get("valid_months") or ()) != split.inner_tune.as_tuple():
+            raise ValueError(f"{outer} candidate inner tune months do not match the registry")
+        baseline_best = max(
+            baseline_history,
+            key=lambda row: (float(row["tune_cosine_uncentered"]), -float(row["epoch"])),
+        )
+        candidate_best = max(
+            candidate_history,
+            key=lambda row: (float(row["tune_cosine_uncentered"]), -float(row["epoch"])),
+        )
+        baseline_score = float(baseline_best["tune_cosine_uncentered"])
+        candidate_score = float(candidate_best["tune_cosine_uncentered"])
+        rows.append(
+            {
+                "outer": outer,
+                "baseline_best_epoch": int(baseline_best["epoch"]),
+                "baseline_score": baseline_score,
+                "candidate_best_epoch": int(candidate_best["epoch"]),
+                "candidate_score": candidate_score,
+                "delta": candidate_score - baseline_score,
+            }
+        )
+    deltas = np.asarray([row["delta"] for row in rows], dtype=np.float64)
+    gate = {
+        "positive_inner": int((deltas > 0).sum()),
+        "mean_delta": float(deltas.mean()),
+        "worst_delta": float(deltas.min()),
+    }
+    gate["passed"] = bool(
+        gate["positive_inner"] >= 2
+        and gate["mean_delta"] >= 0.0003
+        and gate["worst_delta"] >= -0.0005
+    )
+    report = {
+        "baseline_id": baseline_id,
+        "candidate_id": candidate_id,
+        "outer": rows,
+        "gate": gate,
+        "note": "This screening comparison uses only registered inner tune periods.",
+    }
+    stem = f"{candidate_id.replace('-', '_')}_inner_vs_{baseline_id.replace('-', '_')}"
+    target = root / f"{stem}.json"
+    target.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    lines = [
+        f"# {candidate_id} inner diagnostic",
+        "",
+        "| Split | Baseline epoch | Baseline | Candidate epoch | Candidate | Delta |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for row in rows:
+        lines.append(
+            f"| {row['outer']} | {row['baseline_best_epoch']} | {row['baseline_score']:.9f} | {row['candidate_best_epoch']} | {row['candidate_score']:.9f} | {row['delta']:+.9f} |"
+        )
+    lines.extend(
+        [
+            "",
+            f"Screening gate: `{'PASS' if gate['passed'] else 'FAIL'}`",
+            f"Positive inner splits: `{gate['positive_inner']}/3`",
+            f"Mean delta: `{gate['mean_delta']:+.9f}`",
+            f"Worst delta: `{gate['worst_delta']:+.9f}`",
+            "",
+            report["note"],
+            "",
+        ]
+    )
+    target.with_suffix(".md").write_text("\n".join(lines), encoding="utf-8")
+    return report

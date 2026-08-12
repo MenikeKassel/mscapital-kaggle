@@ -111,7 +111,7 @@ def build(
         )
         metadata = {
             "id": f"kasselmenike/{slug}",
-            "title": f"MSCapital {experiment_id} {outer}",
+            "title": f"{kernel_prefix} {outer.lower()}",
             "code_file": "kernel.py",
             "language": "python",
             "kernel_type": "script",

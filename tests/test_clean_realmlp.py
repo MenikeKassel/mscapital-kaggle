@@ -12,6 +12,7 @@ from mscapital.models.realmlp import (
     _build_torch_classes,
     _environment_versions,
     _parameter_groups,
+    compare_inner_diagnostics,
     compare_outer_experiments,
     flat_anneal,
     load_frame,
@@ -291,3 +292,43 @@ def test_c2_comparison_requires_alignment_and_applies_frozen_gate(tmp_path):
     np.savez_compressed(tmp_path / "candidate" / "T4" / "predictions.npz", **payload)
     with np.testing.assert_raises_regex(ValueError, "sample_id"):
         compare_outer_experiments(tmp_path, "baseline", "candidate")
+
+
+def test_c2_inner_screening_uses_only_registered_histories(tmp_path):
+    from mscapital.splits import NESTED_SPLITS
+
+    for outer in ("PSEUDO", "H2", "T3"):
+        split = NESTED_SPLITS[outer]
+        baseline_dir = tmp_path / "baseline" / outer
+        candidate_dir = tmp_path / "candidate" / outer
+        baseline_dir.mkdir(parents=True)
+        candidate_dir.mkdir(parents=True)
+        (baseline_dir / "training_history.json").write_text(
+            json.dumps({"inner": [{"epoch": 10, "tune_cosine_uncentered": 0.10}]}),
+            encoding="utf-8",
+        )
+        (candidate_dir / "training_history.json").write_text(
+            json.dumps(
+                {
+                    "inner": [
+                        {"epoch": 10, "tune_cosine_uncentered": 0.099},
+                        {"epoch": 20, "tune_cosine_uncentered": 0.102},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (candidate_dir / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "train_months": list(split.inner_train.as_tuple()),
+                    "valid_months": list(split.inner_tune.as_tuple()),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    report = compare_inner_diagnostics(tmp_path, "baseline", "candidate")
+    assert report["gate"]["passed"] is True
+    assert report["gate"]["positive_inner"] == 3
+    assert all(row["candidate_best_epoch"] == 20 for row in report["outer"])
