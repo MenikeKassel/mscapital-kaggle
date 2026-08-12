@@ -22,7 +22,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
-from ..artifacts import ExperimentManifest, feature_hash, save_predictions
+from ..artifacts import ExperimentManifest, feature_hash, git_sha, save_predictions
 from ..diagnostics import prediction_diagnostics
 from ..metrics import cosine_uncentered
 from ..splits import NESTED_SPLITS, NestedSplit
@@ -822,7 +822,7 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
         "runtime_seconds": time.perf_counter() - started,
     }
     config_payload = json.dumps(asdict(cfg), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-    manifest = ExperimentManifest(experiment_id=f"clean-realmlp-v2a-{outer_name.lower()}", status="complete", config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"])
+    manifest = ExperimentManifest(experiment_id=f"clean-realmlp-v2a-{outer_name.lower()}", status="complete", git_sha=os.environ.get("MSCAP_GIT_SHA") or git_sha(), config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"])
     manifest.data_fingerprints = {Path(path).name: _stable_file_fingerprint(path) for path in data_paths if Path(path).exists()}
     manifest.write(output)
     (output / "training_history.json").write_text(json.dumps({"inner": inner_result.history, "refit": refit_history}, indent=2), encoding="utf-8")
