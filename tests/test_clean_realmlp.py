@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import hashlib
 import json
+from dataclasses import asdict
+from pathlib import Path
 
 from mscapital.models.realmlp import (
     CleanRealMLPPreprocessor,
@@ -100,6 +102,28 @@ def test_environment_manifest_has_runtime_and_accelerator():
     assert environment["python"]
     assert environment["packages"]["numpy"]
     assert "cuda_available" in environment["accelerator"]
+
+
+def test_c2_configs_are_single_variable_changes_from_c1():
+    repo = Path(__file__).resolve().parents[1]
+
+    def load(name):
+        return RealMLPConfig.from_mapping(
+            json.loads((repo / "configs" / name).read_text(encoding="utf-8"))
+        )
+
+    baseline = asdict(load("clean-realmlp-v2a.json"))
+    expected = {
+        "c2-realmlp-ceiling-30.json": {"epochs"},
+        "c2-realmlp-optimizer-first-ntp.json": {"optimizer_grouping"},
+        "c2-realmlp-mask-full.json": {"mask_mode"},
+        "c2-realmlp-mask-none.json": {"mask_mode"},
+        "c2-realmlp-target-raw.json": {"target_round"},
+    }
+    for filename, expected_fields in expected.items():
+        candidate = asdict(load(filename))
+        changed = {key for key in baseline if baseline[key] != candidate[key]}
+        assert changed == expected_fields
 
 
 def test_rq_fit_is_refit_dependent():
