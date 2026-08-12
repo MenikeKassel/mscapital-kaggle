@@ -1,0 +1,74 @@
+import numpy as np
+import pandas as pd
+
+from mscapital.models.realmlp import (
+    CleanRealMLPPreprocessor,
+    RQKMeansEncoder,
+    RealMLPConfig,
+    _build_torch_classes,
+    _parameter_groups,
+    flat_anneal,
+    uncentered_cosine_torch,
+)
+
+
+def test_preprocessor_is_training_fold_only_and_handles_quantile_ood():
+    rng = np.random.default_rng(123)
+    n = 160
+    train = pd.DataFrame(
+        {
+            "f_signal": np.linspace(-1, 1, n),
+            "f_duplicate": np.linspace(-1, 1, n),
+            "f_high_card": rng.permutation(n).astype(float),
+            "f_constant": 1.0,
+            "t_large_sell_95": (np.arange(n) % 3).astype(float),
+        }
+    )
+    target = train.f_signal.to_numpy() + rng.normal(0, 0.001, n)
+    cfg = RealMLPConfig(quantile_bins=40)
+    pre = CleanRealMLPPreprocessor(tuple(train.columns), cfg).fit(train, target)
+    assert "f_constant" not in pre.selected_numeric
+    assert len(pre.selected_numeric) >= 1
+    assert "f_high_card" in pre.quantile_edges
+    state_before = pre.state_hash
+    valid = train.iloc[:3].copy()
+    valid.loc[:, "f_high_card"] = [10_000.0, -10_000.0, np.nan]
+    valid.loc[:, "t_large_sell_95"] = [99, np.nan, 1]
+    numeric, categorical = pre.transform(valid)
+    assert numeric.shape[0] == categorical.shape[0] == 3
+    assert np.isfinite(numeric).all()
+    assert categorical[0, 0] == 3  # unknown category sentinel
+    assert categorical[1, 0] == 3  # missing category sentinel
+    assert pre.state_hash == state_before
+
+
+def test_half_mask_and_legacy_optimizer_grouping():
+    torch, _, _, model_cls = _build_torch_classes()
+    cfg = RealMLPConfig()
+    model = model_cls(n_numeric=3, cat_dims=[3], cfg=cfg)
+    mask = model.feature_mask.detach().cpu().numpy()
+    assert mask.shape[0] == 16
+    for member in range(min(16, mask.shape[1])):
+        assert not mask[member, member]
+        assert mask[member].sum() < mask.shape[1]
+    groups = _parameter_groups(model, torch, cfg)
+    assert len(groups) == 5
+    assert all(group["params"] for group in groups)
+
+
+def test_uncentered_cosine_zero_norm_is_finite_and_schedule_is_explicit():
+    torch, _, _, _ = _build_torch_classes()
+    value = uncentered_cosine_torch(torch.zeros(4), torch.ones(4), torch)
+    assert float(value) == 0.0
+    assert flat_anneal(1.0, 0.0) == 1.0
+    assert flat_anneal(1.0, 0.5) == 1.0
+    assert flat_anneal(1.0, 1.0) == 0.0
+
+
+def test_rq_fit_is_refit_dependent():
+    first = np.linspace(-1, 1, 30)
+    second = np.linspace(10, 12, 30)
+    left = RQKMeansEncoder(3, 3).fit(first)
+    right = RQKMeansEncoder(3, 3).fit(second)
+    assert not np.array_equal(left.encode(first), right.encode(first))
+    assert left.encode(first).shape == (30, 3)
