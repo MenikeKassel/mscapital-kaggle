@@ -48,8 +48,10 @@ The outers are correlated temporal stress tests, not independent samples.
 Passing candidates remain subject to a combined-configuration confirmation;
 individual gains are not assumed additive.
 
-No C2 command submits to Kaggle. Predictions, weights, logs, credentials, and
-machine-specific paths remain private artifacts.
+The optional builder `--push` publishes a private Kaggle training kernel, but
+no C2 command creates a competition prediction submission. Predictions,
+weights, logs, credentials, and machine-specific paths remain private
+artifacts.
 
 ## Completed result
 
