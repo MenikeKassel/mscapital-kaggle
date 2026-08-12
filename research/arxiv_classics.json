@@ -1,0 +1,27 @@
+{
+ "1803.01271": {
+  "id": "1803.01271",
+  "title": "An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling",
+  "year": "1803"
+ },
+ "1706.03762": {
+  "id": "1706.03762",
+  "title": "Attention Is All You Need",
+  "year": "1706"
+ },
+ "1603.02754": {
+  "id": "1603.02754",
+  "title": "XGBoost: A Scalable Tree Boosting System",
+  "year": "1603"
+ },
+ "1703.09831": {
+  "id": "1703.09831",
+  "title": "A Deep Compositional Framework for Human-like Language Acquisition in Virtual Environment",
+  "year": "1703"
+ },
+ "1908.07442": {
+  "id": "1908.07442",
+  "title": "TabNet: Attentive Interpretable Tabular Learning",
+  "year": "1908"
+ }
+}
