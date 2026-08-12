@@ -1,4 +1,7 @@
+import base64
+import io
 import json
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -99,6 +102,9 @@ def test_legacy_verifier_rejects_target_misalignment(tmp_path: Path):
 def test_kaggle_payload_contains_model_and_mount_preflight():
     repo = Path(__file__).resolve().parents[1]
     payload = _package_payload(repo / "src" / "mscapital")
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode(payload))) as archive:
+        assert "mscapital/models/residual_catboost.py" in archive.namelist()
+        assert "mscapital/models/clean_table.py" in archive.namelist()
     code = _kernel_code(payload, "PSEUDO", "abc123", {}, "clean-table-v2")
     assert "models/clean_table.py" not in code  # compressed, not a filesystem import
     assert "train_features.parquet" in code

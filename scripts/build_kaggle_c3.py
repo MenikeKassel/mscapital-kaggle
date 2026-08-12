@@ -20,7 +20,7 @@ DATASET_SLUG = "msc-clean-table-v2-data"
 def _package_payload(src_root: Path) -> str:
     names = (
         "__init__.py", "artifacts.py", "diagnostics.py", "metrics.py", "splits.py",
-        "models/__init__.py", "models/clean_table.py",
+        "models/__init__.py", "models/residual_catboost.py", "models/clean_table.py",
     )
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
