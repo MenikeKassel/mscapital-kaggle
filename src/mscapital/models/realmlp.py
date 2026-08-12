@@ -196,7 +196,7 @@ class CleanRealMLPPreprocessor:
             raise ValueError("training target contains NaN/Inf")
         self.categorical = tuple(
             name for name in self.categorical
-            if sum(_stable_key(value) is not None for value in frame[name]) > 1
+            if len({_stable_key(value) for value in frame[name] if _stable_key(value) is not None}) > 1
         )
         self.numeric_candidates = tuple(c for c in self.feature_names if c not in self.config.categorical_columns)
         numeric = np.asarray(frame[list(self.numeric_candidates)], dtype=np.float64)
