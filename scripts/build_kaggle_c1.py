@@ -28,6 +28,7 @@ def _package_payload(src_root: Path) -> str:
         "metrics.py",
         "splits.py",
         "models/__init__.py",
+        "models/residual_catboost.py",
         "models/realmlp.py",
     )
     stream = io.BytesIO()
