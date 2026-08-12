@@ -206,6 +206,14 @@ CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和。
 - Table 与 C2 30-epoch RealMLP outer corr 为 `0.81-0.85`，但 RealMLP std 是 Table 的 `34-42x`；C4 必须在 inner 上比较 raw/std/RMS。
 - 详见 `docs/c3-clean-table-results.md`；未创建 Kaggle competition submission。
 
+## Protocol-v2 C4 Clean Baseline v2 (2026-08-13)
+
+- Inner-only raw/std/RMS × `0.00-1.00` 校准，fold-adaptive outer: **0.142649 / 0.141762 / 0.143515 / 0.156924**。
+- 生产规则冻结为 `0.63×RMS(30ep RealMLP) + 0.37×RMS(Clean Table)`。
+- 统一生产规则四折全正，outer: **0.142358 / 0.141795 / 0.143515 / 0.156924**；描述性均值 **0.146148**，相对 RealMLP 平均 **+0.004961**，通过 `+0.0005` 门禁。
+- 数值 scale 不从 outer/test 拟合；按冻结规则等待 canonical rolling OOF m51-70 估计。
+- Clean Baseline v2 现已冻结，后续 M01-M04 不得根据 alpha 结果回改。详见 `docs/c4-clean-baseline-results.md`。
+
 ## 负面结果
 
 | ID | 实验 | 结果 | 教训 |

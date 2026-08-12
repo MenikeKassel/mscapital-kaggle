@@ -184,6 +184,15 @@ def _cmd_verify_legacy_table(args: argparse.Namespace) -> None:
     print(json.dumps(result, indent=2))
 
 
+def _cmd_calibrate_clean_baseline(args: argparse.Namespace) -> None:
+    from .clean_baseline import calibrate_clean_baseline
+
+    result = calibrate_clean_baseline(
+        args.realmlp_root, args.table_root, args.output_root, experiment_id=args.experiment_id
+    )
+    print(json.dumps({"status": result["status"], "gate": result["gate"], "production": result["production"]}, indent=2))
+
+
 def _cmd_realmlp_inner(args: argparse.Namespace) -> None:
     from .models.realmlp import RealMLPConfig, load_frame, run_inner_diagnostic
 
@@ -396,6 +405,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--table-pseudo", type=Path, required=True)
     p.add_argument("--realmlp-pseudo", type=Path, required=True)
     p.set_defaults(func=_cmd_verify_legacy_table)
+    p = sub.add_parser("calibrate-clean-baseline", help="run C4 nested RealMLP/Table calibration")
+    p.add_argument("--realmlp-root", type=Path, required=True)
+    p.add_argument("--table-root", type=Path, required=True)
+    p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument("--experiment-id", default="clean-baseline-v2")
+    p.set_defaults(func=_cmd_calibrate_clean_baseline)
     p = sub.add_parser("realmlp-inner", help="run a C2 inner-only RealMLP diagnostic")
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--outer", choices=("PSEUDO", "H2", "T3", "ALL"), required=True)
