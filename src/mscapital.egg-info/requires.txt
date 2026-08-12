@@ -1,0 +1,12 @@
+numpy>=1.24
+pyarrow>=12
+
+[dev]
+pytest>=7
+
+[models]
+catboost>=1.2
+scikit-learn>=1.2
+
+[yaml]
+PyYAML>=6
