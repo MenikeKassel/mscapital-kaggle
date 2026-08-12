@@ -1,6 +1,6 @@
-# C4 Clean Baseline v2 Results
+# C4 Clean Baseline v2 Calibration Selection
 
-C4 completed on 2026-08-13 and freezes the Clean Baseline v2 recipe. It uses
+C4 nested calibration selection completed on 2026-08-13. It uses
 the accepted 30-epoch RealMLP from C2 and Clean Table from C3 without changing
 either component.
 
@@ -27,7 +27,7 @@ The predeclared default gate passes: all four leakage-safe nested outer
 predictions are non-degrading and their mean improvement is greater than
 `+0.0005`.
 
-## Frozen production rule
+## Selected production rule
 
 The production method is the mode of the four inner-selected methods and the
 production Table weight is the median of the four inner-selected weights:
@@ -43,15 +43,16 @@ the explicit ban on calibrating among overlapping stress tests.
 
 Numeric production scales are intentionally not frozen from outer or test
 distributions. They will be fitted once from the canonical rolling OOF m51-70
-segment. The recipe, component versions, method, weight, and scale source are
-now frozen; later alpha experiments may not retune them.
+segment. The component versions, method, weight, and scale source are selected
+and may not be retuned. Clean Baseline v2 itself remains incomplete until the
+canonical rolling OOF scales are fitted and its production schema is verified.
 
 ## Integrity
 
 - RealMLP/Table IDs, months, and targets matched exactly for every inner and
   outer artifact; all predictions were finite.
-- Calibration outputs record the component scales, input prediction hashes,
-  selected method/weight, and the frozen production calibration.
+- Calibration outputs record the fold-specific scales, input prediction
+  hashes, and selected method/weight.
 - Each outer `predictions.npz` stores its leakage-safe fold-specific nested
   prediction. No cross-fold aggregate is presented as an outer prediction.
 - Tests rewrite outer predictions without changing inner method/weight
@@ -59,5 +60,6 @@ now frozen; later alpha experiments may not retune them.
 - No competition submission, prediction array, model weight, token, or private
   data is included in the public repository.
 
-Clean Baseline v2 is frozen. The next stage is canonical rolling OOF production
-followed by M01-A residual alpha.
+The next stage is canonical rolling OOF production. Clean Baseline v2 freezes
+only after those production scales and the final prediction schema are fixed;
+M01-A follows that boundary.

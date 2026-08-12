@@ -143,7 +143,7 @@ def calibrate_clean_baseline(
         split = NESTED_SPLITS[outer_name]
         fold_output = output_root / outer_name
         ExperimentManifest(
-            experiment_id=f"{experiment_id}-{outer_name.lower()}", status="frozen",
+            experiment_id=f"{experiment_id}-{outer_name.lower()}", status="nested-complete",
             config_hash=config_hash,
             train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(),
             scores={"cosine_uncentered": row["final_score"]}, diagnostics=row,
@@ -159,7 +159,7 @@ def calibrate_clean_baseline(
         raise ValueError(f"Clean Baseline v2 nested gate failed: {gate}")
     report = {
         "experiment_id": experiment_id,
-        "status": "frozen",
+        "status": "calibration-selected-scales-pending",
         "components": {"realmlp": "c2-realmlp-epochs30", "table": "clean-table-v2"},
         "rows": rows,
         "mean_final_score": float(np.mean([row["final_score"] for row in rows])),
@@ -173,7 +173,7 @@ def calibrate_clean_baseline(
     report["result_hash"] = hashlib.sha256(payload).hexdigest()
     (output_root / "clean_baseline_v2_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     lines = [
-        "# Clean Baseline v2", "",
+        "# Clean Baseline v2 calibration selection", "",
         "| Outer | Method | Table weight | RealMLP | Table | Final | Delta | Corr |",
         "|---|---|---:|---:|---:|---:|---:|---:|",
     ]

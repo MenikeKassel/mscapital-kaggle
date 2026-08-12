@@ -46,6 +46,7 @@ def test_calibration_selection_does_not_depend_on_outer_predictions(tmp_path: Pa
     ]
     assert first["gate"]["applies_to"] == "fold_specific_nested_calibrations"
     assert first["gate"]["passed"] is True
+    assert first["status"] == "calibration-selected-scales-pending"
 
 
 def test_calibration_rejects_misaligned_ids(tmp_path: Path):
