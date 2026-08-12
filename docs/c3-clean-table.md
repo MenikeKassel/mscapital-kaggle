@@ -16,7 +16,7 @@ outer target never selects a feature, transform, iteration, or blend weight.
 Run one fold locally:
 
 ```powershell
-$env:MSCAP_DATA_ROOT = "D:\mscapital-forecasting\data"
+$env:MSCAP_DATA_ROOT = "<absolute-data-root>"
 python -m mscapital clean-table `
   --config configs/clean-table-v2.json `
   --outer PSEUDO
