@@ -18,6 +18,10 @@ AVAILABLE_SPLITS = OUTERS + ("R61_70",)
 DATASET_SLUG = "msc-clean-table-v2-data"
 
 
+def _kernel_slug(kernel_prefix: str, split_name: str) -> str:
+    return f"{kernel_prefix}-{split_name.lower().replace('_', '-')}"
+
+
 def _package_payload(src_root: Path) -> str:
     names = (
         "__init__.py", "artifacts.py", "diagnostics.py", "metrics.py", "splits.py",
@@ -98,7 +102,7 @@ def build_kernels(
     git_sha = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
     output.mkdir(parents=True, exist_ok=True)
     for outer in outers:
-        slug = f"{kernel_prefix}-{outer.lower()}"
+        slug = _kernel_slug(kernel_prefix, outer)
         directory = output / outer.lower()
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "kernel.py").write_text(
