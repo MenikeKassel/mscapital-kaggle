@@ -853,6 +853,7 @@ def run_inner_diagnostic(
     split = NESTED_SPLITS[outer_name]
     output = Path(output_dir) / outer_name
     output.mkdir(parents=True, exist_ok=True)
+    source_git_sha = os.environ.get("MSCAP_GIT_SHA") or git_sha()
     months = frame.month
     train_mask = split.inner_train.contains(months)
     tune_mask = split.inner_tune.contains(months)
@@ -911,7 +912,7 @@ def run_inner_diagnostic(
     manifest = ExperimentManifest(
         experiment_id=f"{experiment_id}-{outer_name.lower()}-inner",
         status="complete",
-        git_sha=os.environ.get("MSCAP_GIT_SHA") or git_sha(),
+        git_sha=source_git_sha,
         config_hash=hashlib.sha256(config_payload).hexdigest(),
         train_months=split.inner_train.as_tuple(),
         valid_months=split.inner_tune.as_tuple(),
@@ -962,6 +963,7 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
     split: NestedSplit = NESTED_SPLITS[outer_name]
     output = Path(output_dir) / outer_name
     output.mkdir(parents=True, exist_ok=True)
+    source_git_sha = os.environ.get("MSCAP_GIT_SHA") or git_sha()
     months = frame.month
     inner_train_mask = (months >= split.inner_train.start) & (months <= split.inner_train.end)
     inner_tune_mask = (months >= split.inner_tune.start) & (months <= split.inner_tune.end)
@@ -1021,7 +1023,7 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
         "runtime_seconds": time.perf_counter() - started,
     }
     config_payload = json.dumps(asdict(cfg), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-    manifest = ExperimentManifest(experiment_id=f"{experiment_id}-{outer_name.lower()}", status="complete", git_sha=os.environ.get("MSCAP_GIT_SHA") or git_sha(), config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"], environment=_environment_versions())
+    manifest = ExperimentManifest(experiment_id=f"{experiment_id}-{outer_name.lower()}", status="complete", git_sha=source_git_sha, config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"], environment=_environment_versions())
     manifest.data_fingerprints = {Path(path).name: _stable_file_fingerprint(path) for path in data_paths if Path(path).exists()}
     manifest.write(output)
     (output / "training_history.json").write_text(json.dumps({"inner": inner_result.history, "refit": refit_history}, indent=2), encoding="utf-8")
