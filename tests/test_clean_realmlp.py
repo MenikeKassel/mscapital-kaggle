@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import hashlib
 import json
+from dataclasses import asdict
+from pathlib import Path
 
 from mscapital.models.realmlp import (
     CleanRealMLPPreprocessor,
@@ -12,6 +14,8 @@ from mscapital.models.realmlp import (
     _build_torch_classes,
     _environment_versions,
     _parameter_groups,
+    compare_inner_diagnostics,
+    compare_outer_experiments,
     flat_anneal,
     load_frame,
     run_outer,
@@ -66,6 +70,23 @@ def test_half_mask_and_legacy_optimizer_grouping():
     assert cfg.rq_head_layers == 2
     assert len(model.code_heads) == 2
 
+    full_model = model_cls(n_numeric=3, cat_dims=[3], cfg=RealMLPConfig(mask_mode="full"))
+    full_mask = full_model.feature_mask.detach().cpu().numpy()
+    no_mask_model = model_cls(n_numeric=3, cat_dims=[3], cfg=RealMLPConfig(mask_mode="none"))
+    no_mask = no_mask_model.feature_mask.detach().cpu().numpy()
+    for member in range(16):
+        assert np.flatnonzero(~mask[member]).tolist() == list(range(member, mask.shape[1], 8))
+        assert np.flatnonzero(~full_mask[member]).tolist() == list(range(member, full_mask.shape[1], 16))
+    assert no_mask.all()
+
+    corrected_cfg = RealMLPConfig(optimizer_grouping="first_ntp")
+    corrected_model = model_cls(n_numeric=3, cat_dims=[3], cfg=corrected_cfg)
+    corrected_groups = _parameter_groups(corrected_model, torch, corrected_cfg)
+    corrected_first = corrected_groups[2]["params"]
+    first_ntp_weight = dict(corrected_model.named_parameters())["shared.2.weight"]
+    assert len(corrected_first) == 1
+    assert corrected_first[0] is first_ntp_weight
+
 
 def test_uncentered_cosine_zero_norm_is_finite_and_schedule_is_explicit():
     torch, _, _, _ = _build_torch_classes()
@@ -81,6 +102,28 @@ def test_environment_manifest_has_runtime_and_accelerator():
     assert environment["python"]
     assert environment["packages"]["numpy"]
     assert "cuda_available" in environment["accelerator"]
+
+
+def test_c2_configs_are_single_variable_changes_from_c1():
+    repo = Path(__file__).resolve().parents[1]
+
+    def load(name):
+        return RealMLPConfig.from_mapping(
+            json.loads((repo / "configs" / name).read_text(encoding="utf-8"))
+        )
+
+    baseline = asdict(load("clean-realmlp-v2a.json"))
+    expected = {
+        "c2-realmlp-ceiling-30.json": {"epochs"},
+        "c2-realmlp-optimizer-first-ntp.json": {"optimizer_grouping"},
+        "c2-realmlp-mask-full.json": {"mask_mode"},
+        "c2-realmlp-mask-none.json": {"mask_mode"},
+        "c2-realmlp-target-raw.json": {"target_round"},
+    }
+    for filename, expected_fields in expected.items():
+        candidate = asdict(load(filename))
+        changed = {key for key in baseline if baseline[key] != candidate[key]}
+        assert changed == expected_fields
 
 
 def test_rq_fit_is_refit_dependent():
@@ -174,7 +217,7 @@ def test_outer_rewrite_cannot_change_inner_or_refit_state(monkeypatch, tmp_path)
     def fake_refit(x_train, c_train, y_train, x_valid, c_valid, progress, config):
         rq_hash = digest(RQKMeansEncoder(3, 3).fit(y_train).encode(y_train))
         captures.append(("refit", digest(x_train), rq_hash))
-        return np.full(x_valid.shape[0], 0.001, dtype=np.float32), [{"epoch": 4.0}], 4, progress
+        return np.full(x_valid.shape[0], 0.001, dtype=np.float32), [{"epoch": 4.0}], 4, progress, rq_hash
 
     monkeypatch.setattr("mscapital.models.realmlp.train_inner", fake_inner)
     monkeypatch.setattr("mscapital.models.realmlp._train_refit_predict", fake_refit)
@@ -242,3 +285,107 @@ def test_summary_uses_required_public_report_filenames(tmp_path):
     (root / "T4" / "manifest.json").write_text(json.dumps(bad), encoding="utf-8")
     with np.testing.assert_raises_regex(ValueError, "valid months"):
         summarize_outer(tmp_path)
+
+
+def test_c2_comparison_requires_alignment_and_applies_frozen_gate(tmp_path):
+    rng = np.random.default_rng(42)
+    for outer in ("PSEUDO", "H2", "T3", "T4"):
+        target = rng.normal(size=200)
+        baseline = target + rng.normal(scale=2.0, size=200)
+        candidate = target + rng.normal(scale=1.0, size=200)
+        payload = {
+            "sample_id": np.arange(200),
+            "month": np.full(200, 1),
+            "target": target,
+            "split": np.full(200, f"{outer}:outer_valid"),
+        }
+        for experiment, prediction in (("baseline", baseline), ("candidate", candidate)):
+            directory = tmp_path / experiment / outer
+            directory.mkdir(parents=True)
+            np.savez_compressed(directory / "predictions.npz", **payload, pred=prediction)
+
+    report = compare_outer_experiments(tmp_path, "baseline", "candidate")
+    assert report["gate"]["passed"] is True
+    assert report["gate"]["positive_outers"] == 4
+    assert (tmp_path / "candidate_vs_baseline.json").exists()
+    assert (tmp_path / "candidate_vs_baseline.md").exists()
+
+    broken = np.load(tmp_path / "candidate" / "T4" / "predictions.npz")
+    payload = {key: broken[key] for key in broken.files}
+    payload["sample_id"] = payload["sample_id"][::-1]
+    np.savez_compressed(
+        tmp_path / "candidate" / "T4" / "predictions.npz", **payload
+    )
+    np.savez_compressed(tmp_path / "candidate" / "T4" / "predictions.npz", **payload)
+    with np.testing.assert_raises_regex(ValueError, "sample_id"):
+        compare_outer_experiments(tmp_path, "baseline", "candidate")
+
+    payload["sample_id"] = payload["sample_id"][::-1]
+    baseline_t3 = np.load(tmp_path / "baseline" / "T3" / "predictions.npz")
+    baseline_payload = {key: baseline_t3[key] for key in baseline_t3.files}
+    baseline_payload["pred"] = np.asarray(baseline_payload["pred"], dtype=float)
+    baseline_payload["pred"][0] = np.nan
+    np.savez_compressed(
+        tmp_path / "baseline" / "T3" / "predictions.npz", **baseline_payload
+    )
+    with np.testing.assert_raises_regex(ValueError, "baseline contains"):
+        compare_outer_experiments(tmp_path, "baseline", "candidate")
+
+
+def test_c2_inner_screening_uses_only_registered_histories(tmp_path):
+    from mscapital.splits import NESTED_SPLITS
+
+    for outer in ("PSEUDO", "H2", "T3"):
+        split = NESTED_SPLITS[outer]
+        baseline_dir = tmp_path / "baseline" / outer
+        candidate_dir = tmp_path / "candidate" / outer
+        baseline_dir.mkdir(parents=True)
+        candidate_dir.mkdir(parents=True)
+        (baseline_dir / "training_history.json").write_text(
+            json.dumps({"inner": [{"epoch": 10, "tune_cosine_uncentered": 0.10}]}),
+            encoding="utf-8",
+        )
+        (candidate_dir / "training_history.json").write_text(
+            json.dumps(
+                {
+                    "inner": [
+                        {"epoch": 10, "tune_cosine_uncentered": 0.099},
+                        {"epoch": 20, "tune_cosine_uncentered": 0.102},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (candidate_dir / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "train_months": list(split.inner_train.as_tuple()),
+                    "valid_months": list(split.inner_tune.as_tuple()),
+                    "environment": {"accelerator": {"device": "same-gpu"}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        (baseline_dir / "manifest.json").write_text(
+            json.dumps(
+                {"environment": {"accelerator": {"device": "same-gpu"}}}
+            ),
+            encoding="utf-8",
+        )
+
+    report = compare_inner_diagnostics(tmp_path, "baseline", "candidate")
+    assert report["gate"]["passed"] is True
+    assert report["gate"]["positive_inner"] == 3
+    assert all(row["candidate_best_epoch"] == 20 for row in report["outer"])
+
+    mismatched = json.loads(
+        (tmp_path / "candidate" / "H2" / "manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    mismatched["environment"]["accelerator"]["device"] = "other-gpu"
+    (tmp_path / "candidate" / "H2" / "manifest.json").write_text(
+        json.dumps(mismatched), encoding="utf-8"
+    )
+    with np.testing.assert_raises_regex(ValueError, "environment does not match"):
+        compare_inner_diagnostics(tmp_path, "baseline", "candidate")

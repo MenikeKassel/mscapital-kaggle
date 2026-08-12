@@ -121,6 +121,7 @@ def _cmd_clean_realmlp(args: argparse.Namespace) -> None:
             outer,
             model_config,
             artifact_root / experiment_id,
+            experiment_id=experiment_id,
             data_paths=(train_path, labels_path),
             legacy_pseudo_path=legacy_path,
         )
@@ -134,6 +135,52 @@ def _cmd_summarize_clean_realmlp(args: argparse.Namespace) -> None:
     report = summarize_outer(args.artifact_root, args.experiment_id, args.legacy_pseudo)
     report_name = f"{args.experiment_id.replace('-', '_')}_report.json"
     print(json.dumps({"status": "complete", "mean_score": report["mean_score"], "report": str(Path(args.artifact_root) / report_name)}, indent=2))
+
+
+def _cmd_realmlp_inner(args: argparse.Namespace) -> None:
+    from .models.realmlp import RealMLPConfig, load_frame, run_inner_diagnostic
+
+    mapping = _load_json_mapping(args.config)
+    data_root = Path(os.environ.get("MSCAP_DATA_ROOT", mapping.get("data_root", ".")))
+    train_path = _resolve_data_path(args.train_path or mapping.get("train_path"), data_root, "processed/f0726_train_f32.parquet")
+    labels_path = _resolve_data_path(args.labels_path or mapping.get("labels_path"), data_root, "raw/train/label.feather")
+    artifact_root = Path(args.artifact_root or os.environ.get("MSCAP_ARTIFACT_ROOT", mapping.get("artifact_root", "output/experiments")))
+    config = RealMLPConfig.from_mapping(mapping)
+    overrides = {}
+    if args.device:
+        overrides["device"] = args.device
+    if args.max_rows_per_month is not None:
+        overrides["max_rows_per_month"] = args.max_rows_per_month
+    if overrides:
+        config = RealMLPConfig(**{**config.__dict__, **overrides})
+    frame = load_frame(train_path, labels_path, max_rows_per_month=config.max_rows_per_month)
+    selected = ("PSEUDO", "H2", "T3") if args.outer == "ALL" else (args.outer,)
+    results = [
+        run_inner_diagnostic(
+            frame,
+            outer,
+            config,
+            artifact_root / args.experiment_id,
+            experiment_id=args.experiment_id,
+            data_paths=(train_path, labels_path),
+        )
+        for outer in selected
+    ]
+    print(json.dumps({"status": "complete", "results": results}, indent=2))
+
+
+def _cmd_compare_realmlp(args: argparse.Namespace) -> None:
+    from .models.realmlp import compare_outer_experiments
+
+    report = compare_outer_experiments(args.artifact_root, args.baseline_id, args.candidate_id)
+    print(json.dumps({"status": "complete", "gate": report["gate"]}, indent=2))
+
+
+def _cmd_compare_realmlp_inner(args: argparse.Namespace) -> None:
+    from .models.realmlp import compare_inner_diagnostics
+
+    report = compare_inner_diagnostics(args.artifact_root, args.baseline_id, args.candidate_id)
+    print(json.dumps({"status": "complete", "gate": report["gate"]}, indent=2))
 
 
 def _parse_block(value: str) -> tuple[str, Path]:
@@ -281,6 +328,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--experiment-id", default="clean-realmlp-v2a")
     p.add_argument("--legacy-pseudo", type=Path)
     p.set_defaults(func=_cmd_summarize_clean_realmlp)
+    p = sub.add_parser("realmlp-inner", help="run a C2 inner-only RealMLP diagnostic")
+    p.add_argument("--config", type=Path, required=True)
+    p.add_argument("--outer", choices=("PSEUDO", "H2", "T3", "ALL"), required=True)
+    p.add_argument("--experiment-id", default="c2-realmlp-ceiling")
+    p.add_argument("--train-path", type=Path)
+    p.add_argument("--labels-path", type=Path)
+    p.add_argument("--artifact-root", type=Path)
+    p.add_argument("--device")
+    p.add_argument("--max-rows-per-month", type=int)
+    p.set_defaults(func=_cmd_realmlp_inner)
+    p = sub.add_parser("compare-realmlp", help="compare a C2 four-fold candidate with C1")
+    p.add_argument("--artifact-root", type=Path, required=True)
+    p.add_argument("--baseline-id", default="clean-realmlp-v2a")
+    p.add_argument("--candidate-id", required=True)
+    p.set_defaults(func=_cmd_compare_realmlp)
+    p = sub.add_parser("compare-realmlp-inner", help="apply the C2 three-inner screening gate")
+    p.add_argument("--artifact-root", type=Path, required=True)
+    p.add_argument("--baseline-id", default="clean-realmlp-v2a")
+    p.add_argument("--candidate-id", required=True)
+    p.set_defaults(func=_cmd_compare_realmlp_inner)
     p = sub.add_parser("build-residual-oof", help="merge unique rolling OOF blocks")
     p.add_argument("--block", action="append", required=True, help="NAME=PATH, name must include train end")
     p.add_argument("--output", type=Path, required=True)
