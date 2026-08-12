@@ -1133,3 +1133,90 @@ def summarize_outer(artifact_root: str | Path, experiment_id: str = "clean-realm
     lines += ["", report["note"], ""]
     target.with_suffix(".md").write_text("\n".join(lines), encoding="utf-8")
     return report
+
+
+def compare_outer_experiments(
+    artifact_root: str | Path,
+    baseline_id: str,
+    candidate_id: str,
+) -> dict[str, Any]:
+    """Compare aligned C2 predictions against C1 and apply the frozen gate."""
+
+    root = Path(artifact_root)
+    rows: list[dict[str, Any]] = []
+    for outer in NESTED_SPLITS:
+        baseline_path = root / baseline_id / outer / "predictions.npz"
+        candidate_path = root / candidate_id / outer / "predictions.npz"
+        if not baseline_path.exists() or not candidate_path.exists():
+            raise FileNotFoundError(f"missing aligned predictions for {outer}")
+        with np.load(baseline_path) as baseline, np.load(candidate_path) as candidate:
+            for key in ("sample_id", "month", "target"):
+                if not np.array_equal(baseline[key], candidate[key]):
+                    raise ValueError(f"{outer} candidate {key} is not aligned with baseline")
+            baseline_pred = np.asarray(baseline["pred"], dtype=np.float64)
+            candidate_pred = np.asarray(candidate["pred"], dtype=np.float64)
+            target = np.asarray(baseline["target"], dtype=np.float64)
+        if not np.isfinite(candidate_pred).all():
+            raise ValueError(f"{outer} candidate contains NaN or infinite predictions")
+        baseline_score = cosine_uncentered(baseline_pred, target)
+        candidate_score = cosine_uncentered(candidate_pred, target)
+        correlation = (
+            float(np.corrcoef(baseline_pred, candidate_pred)[0, 1])
+            if np.std(baseline_pred) and np.std(candidate_pred)
+            else 0.0
+        )
+        rows.append(
+            {
+                "outer": outer,
+                "baseline_score": baseline_score,
+                "candidate_score": candidate_score,
+                "delta": candidate_score - baseline_score,
+                "prediction_pearson": correlation,
+            }
+        )
+    deltas = np.asarray([row["delta"] for row in rows], dtype=np.float64)
+    gate = {
+        "positive_outers": int((deltas > 0).sum()),
+        "mean_delta": float(deltas.mean()),
+        "worst_delta": float(deltas.min()),
+    }
+    gate["passed"] = bool(
+        gate["positive_outers"] >= 3
+        and gate["mean_delta"] >= 0.0003
+        and gate["worst_delta"] >= -0.0005
+    )
+    report = {
+        "baseline_id": baseline_id,
+        "candidate_id": candidate_id,
+        "metric": "cosine_uncentered",
+        "outer": rows,
+        "gate": gate,
+        "note": "Outer folds are correlated temporal stress tests, not independent samples.",
+    }
+    stem = f"{candidate_id.replace('-', '_')}_vs_{baseline_id.replace('-', '_')}"
+    json_path = root / f"{stem}.json"
+    json_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    lines = [
+        f"# {candidate_id} vs {baseline_id}",
+        "",
+        "| Outer | Baseline | Candidate | Delta | Prediction Pearson |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for row in rows:
+        lines.append(
+            f"| {row['outer']} | {row['baseline_score']:.9f} | {row['candidate_score']:.9f} | {row['delta']:+.9f} | {row['prediction_pearson']:.9f} |"
+        )
+    lines.extend(
+        [
+            "",
+            f"Gate: `{'PASS' if gate['passed'] else 'FAIL'}`",
+            f"Positive outers: `{gate['positive_outers']}/4`",
+            f"Mean delta: `{gate['mean_delta']:+.9f}`",
+            f"Worst delta: `{gate['worst_delta']:+.9f}`",
+            "",
+            report["note"],
+            "",
+        ]
+    )
+    json_path.with_suffix(".md").write_text("\n".join(lines), encoding="utf-8")
+    return report

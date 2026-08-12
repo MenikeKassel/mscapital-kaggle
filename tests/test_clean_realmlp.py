@@ -12,6 +12,7 @@ from mscapital.models.realmlp import (
     _build_torch_classes,
     _environment_versions,
     _parameter_groups,
+    compare_outer_experiments,
     flat_anneal,
     load_frame,
     run_outer,
@@ -259,3 +260,34 @@ def test_summary_uses_required_public_report_filenames(tmp_path):
     (root / "T4" / "manifest.json").write_text(json.dumps(bad), encoding="utf-8")
     with np.testing.assert_raises_regex(ValueError, "valid months"):
         summarize_outer(tmp_path)
+
+
+def test_c2_comparison_requires_alignment_and_applies_frozen_gate(tmp_path):
+    rng = np.random.default_rng(42)
+    for outer in ("PSEUDO", "H2", "T3", "T4"):
+        target = rng.normal(size=200)
+        baseline = target + rng.normal(scale=2.0, size=200)
+        candidate = target + rng.normal(scale=1.0, size=200)
+        payload = {
+            "sample_id": np.arange(200),
+            "month": np.full(200, 1),
+            "target": target,
+            "split": np.full(200, f"{outer}:outer_valid"),
+        }
+        for experiment, prediction in (("baseline", baseline), ("candidate", candidate)):
+            directory = tmp_path / experiment / outer
+            directory.mkdir(parents=True)
+            np.savez_compressed(directory / "predictions.npz", **payload, pred=prediction)
+
+    report = compare_outer_experiments(tmp_path, "baseline", "candidate")
+    assert report["gate"]["passed"] is True
+    assert report["gate"]["positive_outers"] == 4
+    assert (tmp_path / "candidate_vs_baseline.json").exists()
+    assert (tmp_path / "candidate_vs_baseline.md").exists()
+
+    broken = np.load(tmp_path / "candidate" / "T4" / "predictions.npz")
+    payload = {key: broken[key] for key in broken.files}
+    payload["sample_id"] = payload["sample_id"][::-1]
+    np.savez_compressed(tmp_path / "candidate" / "T4" / "predictions.npz", **payload)
+    with np.testing.assert_raises_regex(ValueError, "sample_id"):
+        compare_outer_experiments(tmp_path, "baseline", "candidate")
