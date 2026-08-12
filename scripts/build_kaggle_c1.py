@@ -19,6 +19,7 @@ from pathlib import Path
 
 
 OUTERS = ("PSEUDO", "H2", "T3", "T4")
+AVAILABLE_SPLITS = OUTERS + ("R61_70",)
 
 
 def _package_payload(src_root: Path) -> str:
@@ -134,7 +135,7 @@ def main() -> None:
     parser.add_argument("--experiment-id", default="clean-realmlp-v2a")
     parser.add_argument("--kernel-prefix", default="mscapital-c1-clean-realmlp-v2a")
     parser.add_argument("--mode", choices=("outer", "inner"), default="outer")
-    parser.add_argument("--outer", action="append", choices=OUTERS)
+    parser.add_argument("--outer", action="append", choices=AVAILABLE_SPLITS)
     parser.add_argument("--push", action="store_true")
     args = parser.parse_args()
     config_path = args.config or args.repo / "configs" / "clean-realmlp-v2a.json"

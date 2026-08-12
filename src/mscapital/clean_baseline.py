@@ -1,4 +1,4 @@
-"""C4 nested calibration and Clean Baseline v2 freezing."""
+"""C4 nested calibration and Clean Baseline v2 production freezing."""
 
 from __future__ import annotations
 
@@ -190,4 +190,111 @@ def calibrate_clean_baseline(
         "component scales will be fitted on canonical rolling OOF m51-70.", "", report["note"],
     ]
     (output_root / "clean_baseline_v2_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report
+
+
+def freeze_production_scales(
+    realmlp_m51_path: str | Path,
+    table_m51_path: str | Path,
+    realmlp_m61_path: str | Path,
+    table_m61_path: str | Path,
+    output_root: str | Path,
+    *,
+    experiment_id: str = "clean-baseline-v2",
+    table_weight: float = 0.37,
+) -> dict[str, Any]:
+    """Fit the fixed production RMS scales on canonical rolling OOF m51-70."""
+
+    blocks = []
+    for name, realmlp_path, table_path, months in (
+        ("m51_60", realmlp_m51_path, table_m51_path, (51, 60)),
+        ("m61_70", realmlp_m61_path, table_m61_path, (61, 70)),
+    ):
+        realmlp, table = _load_aligned(
+            Path(realmlp_path), Path(table_path), expected_months=months
+        )
+        blocks.append((name, realmlp, table))
+
+    sample_id = np.concatenate([block[1]["sample_id"] for block in blocks])
+    month = np.concatenate([block[1]["month"] for block in blocks])
+    target = np.concatenate([block[1]["target"] for block in blocks])
+    realmlp_pred = np.concatenate([block[1]["pred"] for block in blocks]).astype(np.float64)
+    table_pred = np.concatenate([block[2]["pred"] for block in blocks]).astype(np.float64)
+    if np.unique(sample_id).size != sample_id.size:
+        raise ValueError("canonical rolling OOF sample_id must be unique across m51-70")
+    if set(np.unique(month)) != set(range(51, 71)):
+        raise ValueError("canonical rolling OOF must cover every month from 51 through 70")
+    scale_realmlp = float(np.sqrt(np.mean(np.square(realmlp_pred))))
+    scale_table = float(np.sqrt(np.mean(np.square(table_pred))))
+    if not np.isfinite(scale_realmlp) or scale_realmlp <= 0.0:
+        raise ValueError("RealMLP canonical OOF RMS scale must be positive and finite")
+    if not np.isfinite(scale_table) or scale_table <= 0.0:
+        raise ValueError("Table canonical OOF RMS scale must be positive and finite")
+    prediction = (
+        (1.0 - table_weight) * realmlp_pred / scale_realmlp
+        + table_weight * table_pred / scale_table
+    )
+    score = cosine_uncentered(prediction, target)
+    output = Path(output_root) / experiment_id / "production"
+    save_predictions(
+        output / "canonical_scale_predictions.npz",
+        sample_id=sample_id,
+        month=month,
+        target=target,
+        pred=prediction,
+        split=np.full(prediction.size, "canonical_scale_oof_m51_70"),
+    )
+    report = {
+        "experiment_id": experiment_id,
+        "status": "frozen",
+        "method": "rms",
+        "table_weight": float(table_weight),
+        "scale_realmlp": scale_realmlp,
+        "scale_table": scale_table,
+        "scale_source": "canonical_rolling_oof_months_51_70",
+        "canonical_oof_score": float(score),
+        "canonical_oof_rows": int(prediction.size),
+        "canonical_oof_months": [51, 70],
+        "component_scores": {
+            "realmlp": cosine_uncentered(realmlp_pred, target),
+            "table": cosine_uncentered(table_pred, target),
+        },
+        "source_hashes": {
+            "realmlp_m51_60": array_hash(blocks[0][1]["pred"]),
+            "table_m51_60": array_hash(blocks[0][2]["pred"]),
+            "realmlp_m61_70": array_hash(blocks[1][1]["pred"]),
+            "table_m61_70": array_hash(blocks[1][2]["pred"]),
+        },
+    }
+    payload = json.dumps(report, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    report["result_hash"] = hashlib.sha256(payload).hexdigest()
+    (output / "production_scales.json").write_text(
+        json.dumps(report, indent=2), encoding="utf-8"
+    )
+    ExperimentManifest(
+        experiment_id=f"{experiment_id}-production-scales",
+        status="frozen",
+        config_hash=report["result_hash"],
+        train_months=(0, 60),
+        valid_months=(51, 70),
+        scores={"cosine_uncentered": float(score)},
+        diagnostics=report,
+    ).write(output)
+    (output / "report.md").write_text(
+        "\n".join(
+            [
+                "# Clean Baseline v2 production scales",
+                "",
+                f"- method / Table weight: `rms` / `{table_weight:.2f}`",
+                f"- RealMLP RMS scale: `{scale_realmlp:.12g}`",
+                f"- Table RMS scale: `{scale_table:.12g}`",
+                f"- canonical rolling OOF m51-70 score: `{score:.9f}`",
+                f"- rows: `{prediction.size}`",
+                "",
+                "The scales use only canonical rolling OOF predictions and never outer/test distributions.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
     return report

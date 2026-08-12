@@ -14,6 +14,7 @@ from pathlib import Path
 
 
 OUTERS = ("PSEUDO", "H2", "T3", "T4")
+AVAILABLE_SPLITS = OUTERS + ("R61_70",)
 DATASET_SLUG = "msc-clean-table-v2-data"
 
 
@@ -123,7 +124,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--experiment-id", default="clean-table-v2")
     parser.add_argument("--kernel-prefix", default="mscapital-c3-clean-table-v2")
-    parser.add_argument("--outer", action="append", choices=OUTERS)
+    parser.add_argument("--outer", action="append", choices=AVAILABLE_SPLITS)
     parser.add_argument("--push", action="store_true")
     parser.add_argument("--stage-data", action="store_true")
     parser.add_argument("--data-root", type=Path)

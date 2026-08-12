@@ -17,7 +17,7 @@ from .features.ofi import build_m01_features, select_m01_stage
 from .metrics import cosine_uncentered, normalize_prediction
 from .diagnostics import prediction_diagnostics, drift_report
 from .residual import OOFBlock, build_canonical_oof, outer_residual, rolling_window_spec
-from .splits import NESTED_SPLITS, OUTER_SPLITS
+from .splits import NESTED_SPLITS, OUTER_SPLITS, TRAINING_SPLITS
 
 
 def _load_json_mapping(path: Path | None) -> dict:
@@ -191,6 +191,20 @@ def _cmd_calibrate_clean_baseline(args: argparse.Namespace) -> None:
         args.realmlp_root, args.table_root, args.output_root, experiment_id=args.experiment_id
     )
     print(json.dumps({"status": result["status"], "gate": result["gate"], "production": result["production"]}, indent=2))
+
+
+def _cmd_freeze_clean_baseline(args: argparse.Namespace) -> None:
+    from .clean_baseline import freeze_production_scales
+
+    result = freeze_production_scales(
+        args.realmlp_m51,
+        args.table_m51,
+        args.realmlp_m61,
+        args.table_m61,
+        args.output_root,
+        experiment_id=args.experiment_id,
+    )
+    print(json.dumps(result, indent=2))
 
 
 def _cmd_realmlp_inner(args: argparse.Namespace) -> None:
@@ -370,7 +384,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=_cmd_clean_baseline)
     p = sub.add_parser("clean-realmlp", help="run one or all nested Clean RealMLP-v2a outer folds")
     p.add_argument("--config", type=Path)
-    p.add_argument("--outer", choices=tuple(NESTED_SPLITS) + ("ALL",), required=True)
+    p.add_argument("--outer", choices=tuple(TRAINING_SPLITS) + ("ALL",), required=True)
     p.add_argument("--experiment-id", default="clean-realmlp-v2a")
     p.add_argument("--train-path", type=Path)
     p.add_argument("--labels-path", type=Path)
@@ -386,7 +400,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=_cmd_summarize_clean_realmlp)
     p = sub.add_parser("clean-table", help="run one or all nested Clean Table v2 outer folds")
     p.add_argument("--config", type=Path, required=True)
-    p.add_argument("--outer", choices=tuple(NESTED_SPLITS) + ("ALL",), required=True)
+    p.add_argument("--outer", choices=tuple(TRAINING_SPLITS) + ("ALL",), required=True)
     p.add_argument("--experiment-id", default="clean-table-v2")
     p.add_argument("--features-path", type=Path)
     p.add_argument("--micro-path", type=Path)
@@ -411,6 +425,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--output-root", type=Path, required=True)
     p.add_argument("--experiment-id", default="clean-baseline-v2")
     p.set_defaults(func=_cmd_calibrate_clean_baseline)
+    p = sub.add_parser("freeze-clean-baseline", help="fit production RMS scales from canonical rolling OOF m51-70")
+    p.add_argument("--realmlp-m51", type=Path, required=True)
+    p.add_argument("--table-m51", type=Path, required=True)
+    p.add_argument("--realmlp-m61", type=Path, required=True)
+    p.add_argument("--table-m61", type=Path, required=True)
+    p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument("--experiment-id", default="clean-baseline-v2")
+    p.set_defaults(func=_cmd_freeze_clean_baseline)
     p = sub.add_parser("realmlp-inner", help="run a C2 inner-only RealMLP diagnostic")
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--outer", choices=("PSEUDO", "H2", "T3", "ALL"), required=True)

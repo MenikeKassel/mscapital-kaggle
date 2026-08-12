@@ -2,8 +2,8 @@ from pathlib import Path
 
 import numpy as np
 
-from mscapital.clean_baseline import calibrate_clean_baseline
-from mscapital.splits import NESTED_SPLITS
+from mscapital.clean_baseline import calibrate_clean_baseline, freeze_production_scales
+from mscapital.splits import NESTED_SPLITS, TRAINING_SPLITS
 
 
 def _write_artifacts(root: Path, *, table: bool, mutate_outer: bool = False) -> None:
@@ -60,3 +60,50 @@ def test_calibration_rejects_misaligned_ids(tmp_path: Path):
     np.savez(path, **artifact)
     with np.testing.assert_raises_regex(ValueError, "sample_id arrays must align"):
         calibrate_clean_baseline(realmlp, table, tmp_path / "out")
+
+
+def test_canonical_scale_split_is_strictly_historical():
+    split = TRAINING_SPLITS["R61_70"]
+    assert split.inner_train.as_tuple() == (0, 50)
+    assert split.inner_tune.as_tuple() == (51, 60)
+    assert split.refit_train.as_tuple() == (0, 60)
+    assert split.outer_valid.as_tuple() == (61, 70)
+    assert "R61_70" not in NESTED_SPLITS
+
+
+def _write_scale_block(path: Path, months: range, pred: np.ndarray, target: np.ndarray) -> None:
+    month = np.asarray(list(months), dtype=np.int16)
+    np.savez(
+        path,
+        sample_id=np.arange(month.size, dtype=np.int64) + int(month[0]) * 100,
+        month=month,
+        target=target,
+        pred=pred,
+    )
+
+
+def test_freeze_production_scales_uses_exact_canonical_m51_70(tmp_path: Path):
+    y51 = np.linspace(-1.0, 1.0, 10)
+    y61 = np.linspace(1.0, -1.0, 10)
+    paths = [tmp_path / name for name in ("r51.npz", "t51.npz", "r61.npz", "t61.npz")]
+    _write_scale_block(paths[0], range(51, 61), y51 * 2.0, y51)
+    _write_scale_block(paths[1], range(51, 61), y51 * 0.5, y51)
+    _write_scale_block(paths[2], range(61, 71), y61 * 4.0, y61)
+    _write_scale_block(paths[3], range(61, 71), y61 * 0.25, y61)
+    report = freeze_production_scales(*paths, tmp_path / "out")
+    expected_rms_r = np.sqrt(np.mean(np.square(np.r_[y51 * 2.0, y61 * 4.0])))
+    expected_rms_t = np.sqrt(np.mean(np.square(np.r_[y51 * 0.5, y61 * 0.25])))
+    assert report["status"] == "frozen"
+    assert report["canonical_oof_months"] == [51, 70]
+    assert report["canonical_oof_rows"] == 20
+    assert report["scale_realmlp"] == expected_rms_r
+    assert report["scale_table"] == expected_rms_t
+    combined_y = np.r_[y51, y61]
+    expected_pred = (
+        0.63 * np.r_[y51 * 2.0, y61 * 4.0] / expected_rms_r
+        + 0.37 * np.r_[y51 * 0.5, y61 * 0.25] / expected_rms_t
+    )
+    expected_score = float(np.dot(expected_pred, combined_y) / (np.linalg.norm(expected_pred) * np.linalg.norm(combined_y)))
+    assert report["canonical_oof_score"] == expected_score
+    saved = np.load(tmp_path / "out" / "clean-baseline-v2" / "production" / "canonical_scale_predictions.npz")
+    assert set(saved["month"]) == set(range(51, 71))

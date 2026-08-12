@@ -65,6 +65,17 @@ NESTED_SPLITS = {
     "T4": NestedSplit("T4", _m(0, 40), _m(41, 50), _m(0, 50), _m(61, 70)),
 }
 
+# This split is not an additional outer stress test.  It exists only to
+# complete the strictly historical m61-70 block needed by the canonical
+# rolling-OOF production-scale estimate.
+CANONICAL_SCALE_SPLITS = {
+    "R61_70": NestedSplit(
+        "R61_70", _m(0, 50), _m(51, 60), _m(0, 60), _m(61, 70)
+    ),
+}
+
+TRAINING_SPLITS = {**NESTED_SPLITS, **CANONICAL_SCALE_SPLITS}
+
 ROLLING_WINDOWS = (
     ("m21_30", _m(0, 20), _m(21, 30)),
     ("m31_40", _m(0, 30), _m(31, 40)),
@@ -76,6 +87,8 @@ ROLLING_WINDOWS = (
 for _split in OUTER_SPLITS.values():
     _split.validate()
 for _split in NESTED_SPLITS.values():
+    _split.validate()
+for _split in CANONICAL_SCALE_SPLITS.values():
     _split.validate()
 
 
