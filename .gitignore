@@ -1,0 +1,44 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+kaggle.json
+**/kaggle.json
+
+# Generated training artifacts
+catboost_info/
+output/
+runs/
+wandb/
+_lb_tmp/
+research/tmp/
+docs/handoff_*.md
+
+# Competition data, predictions, submissions, and model weights
+*.feather
+*.parquet
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.csv
+*.zip
+*.7z
+*.tar
+*.gz
+
+# Logs and platform files
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
