@@ -6,6 +6,7 @@ from mscapital.models.realmlp import (
     RQKMeansEncoder,
     RealMLPConfig,
     _build_torch_classes,
+    _environment_versions,
     _parameter_groups,
     flat_anneal,
     load_frame,
@@ -67,6 +68,13 @@ def test_uncentered_cosine_zero_norm_is_finite_and_schedule_is_explicit():
     assert flat_anneal(1.0, 0.0) == 1.0
     assert flat_anneal(1.0, 0.5) == 1.0
     assert flat_anneal(1.0, 1.0) == 0.0
+
+
+def test_environment_manifest_has_runtime_and_accelerator():
+    environment = _environment_versions()
+    assert environment["python"]
+    assert environment["packages"]["numpy"]
+    assert "cuda_available" in environment["accelerator"]
 
 
 def test_rq_fit_is_refit_dependent():

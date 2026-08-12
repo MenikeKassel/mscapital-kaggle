@@ -11,10 +11,12 @@ backend is loaded only when a training function is called.
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import math
 import os
 import platform
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -778,6 +780,35 @@ def _outer_report_md(name: str, result: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _environment_versions() -> dict[str, Any]:
+    packages: dict[str, str] = {}
+    for distribution in ("numpy", "pandas", "scikit-learn", "torch", "pyarrow"):
+        try:
+            packages[distribution] = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            packages[distribution] = "not-installed"
+    accelerator: dict[str, Any] = {"cuda_available": False}
+    try:
+        import torch
+
+        accelerator = {
+            "cuda_available": bool(torch.cuda.is_available()),
+            "cuda_runtime": torch.version.cuda,
+            "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
+            "capability": list(torch.cuda.get_device_capability(0)) if torch.cuda.is_available() else None,
+        }
+    except (ImportError, RuntimeError):
+        pass
+    return {
+        "python": platform.python_version(),
+        "implementation": platform.python_implementation(),
+        "platform": platform.platform(),
+        "packages": packages,
+        "accelerator": accelerator,
+        "executable_name": Path(sys.executable).name,
+    }
+
+
 def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_dir: str | Path, *, data_paths: Sequence[str | Path] = (), legacy_pseudo_path: str | Path | None = None) -> dict[str, Any]:
     if outer_name not in NESTED_SPLITS:
         raise KeyError(f"unknown outer split {outer_name}")
@@ -833,7 +864,7 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
         "runtime_seconds": time.perf_counter() - started,
     }
     config_payload = json.dumps(asdict(cfg), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-    manifest = ExperimentManifest(experiment_id=f"clean-realmlp-v2a-{outer_name.lower()}", status="complete", git_sha=os.environ.get("MSCAP_GIT_SHA") or git_sha(), config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"])
+    manifest = ExperimentManifest(experiment_id=f"clean-realmlp-v2a-{outer_name.lower()}", status="complete", git_sha=os.environ.get("MSCAP_GIT_SHA") or git_sha(), config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"], environment=_environment_versions())
     manifest.data_fingerprints = {Path(path).name: _stable_file_fingerprint(path) for path in data_paths if Path(path).exists()}
     manifest.write(output)
     (output / "training_history.json").write_text(json.dumps({"inner": inner_result.history, "refit": refit_history}, indent=2), encoding="utf-8")
@@ -908,10 +939,10 @@ def summarize_outer(artifact_root: str | Path, experiment_id: str = "clean-realm
         report["clean_vs_legacy_prediction_pearson"] = float(np.corrcoef(current_pred, legacy_pred)[0, 1]) if np.std(current_pred) and np.std(legacy_pred) else 0.0
     target = root / f"{experiment_id}_report.json"
     target.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
-    lines = [f"# {experiment_id}", "", "| Outer | Cosine | Best progress | Pred std | Target std | Pearson |", "|---|---:|---:|---:|---:|---:|"]
+    lines = [f"# {experiment_id}", "", "| Outer | Cosine | Pearson | Pred mean | Pred std | Target std | NaN/Inf | Best step | Best progress | Runtime (s) |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for row in rows:
         d = row["diagnostics"]
-        lines.append(f"| {row['experiment_id'].rsplit('-', 1)[-1].upper()} | {row['scores']['cosine_uncentered']:.9f} | {row.get('best_progress', float('nan')):.4f} | {d['prediction']['std']:.9g} | {d['target']['std']:.9g} | {d.get('pearson', float('nan')):.9f} |")
+        lines.append(f"| {row['experiment_id'].rsplit('-', 1)[-1].upper()} | {row['scores']['cosine_uncentered']:.9f} | {d.get('pearson', float('nan')):.9f} | {d['prediction']['mean']:.9g} | {d['prediction']['std']:.9g} | {d['target']['std']:.9g} | {d.get('nan_or_inf', d['prediction'].get('nan_or_inf', 0))} | {row.get('best_step', 0)} | {row.get('best_progress', float('nan')):.4f} | {row.get('runtime_seconds', float('nan')):.1f} |")
     lines += ["", f"Mean cosine: `{report['mean_score']:.9f}`"]
     if "legacy_pseudo_cosine" in report:
         lines += [f"Legacy PSEUDO cosine: `{report['legacy_pseudo_cosine']:.9f}`", f"Clean-vs-legacy PSEUDO prediction Pearson: `{report['clean_vs_legacy_prediction_pearson']:.9f}`"]
