@@ -58,9 +58,14 @@ They were not mixed with the P100 values above.
 | First-`NTPLinear` optimizer group | -0.000096 | -0.000169 | -0.000182 | -0.000149 | 0/3 | Fail |
 | Raw target | -0.000388 | +0.000231 | -0.000271 | -0.000143 | 1/3 | Fail |
 
-No-mask is a weak inner-screen survivor, not a confirmed outer improvement.
-It remains an optional follow-up after the main 30-epoch result. Full-mask,
-corrected optimizer grouping, and raw-target training do not advance.
+No-mask survived the inner screen, so it was formally tested on P100. Its
+PSEUDO outer score fell from `0.136040611` to `0.135266532` (delta
+`-0.000774079`), which breaches the frozen worst-outer floor of `-0.0005`.
+H2 was already running and completed at `0.135990482` (delta `+0.000180491`).
+Both predictions were more than `0.994` correlated with C1. Because the gate
+failure was already irreversible, T3/T4 were not launched. No-mask therefore
+does not advance. Full-mask, corrected optimizer grouping, and raw-target
+training failed the inner pre-screen and also do not advance.
 
 ## Research interpretation
 
@@ -71,8 +76,8 @@ corrected optimizer grouping, and raw-target training do not advance.
   looks cleaner in code; the corrected group was negative in all three inner
   searches.
 - Target rounding remains the C1 default because removing it failed the gate.
-- No-mask may contain a small signal, but its inner gain is roughly one eighth
-  of the 30-epoch gain and has no outer evidence yet.
+- No-mask's small inner gain did not transfer reliably: PSEUDO outer breached
+  the worst-fold gate and the predictions were almost duplicates of C1.
 - The four outers are correlated temporal stress tests, not four independent
   samples. Arithmetic means are descriptive only.
 
