@@ -15,7 +15,7 @@ from mscapital.models.clean_table import (
     apply_r2,
     run_outer,
 )
-from scripts.build_kaggle_c3 import _kernel_code, _package_payload
+from scripts.build_kaggle_c3 import _kernel_code, _package_payload, stage_dataset
 
 
 def test_r2_replaces_exactly_eight_directional_features():
@@ -111,3 +111,15 @@ def test_kaggle_payload_contains_model_and_mount_preflight():
     assert "micro_features_train.parquet" in code
     assert "label.feather" in code
     assert 'MSCAP_GIT_SHA"] = "abc123"' in code
+
+
+def test_private_dataset_does_not_claim_cc0(tmp_path: Path):
+    data_root = tmp_path / "data"
+    processed = data_root / "processed"
+    processed.mkdir(parents=True)
+    (processed / "train_features.parquet").write_bytes(b"features")
+    (processed / "micro_features_train.parquet").write_bytes(b"micro")
+    output = stage_dataset(data_root, tmp_path / "bundle")
+    metadata = json.loads((output / "dataset-metadata.json").read_text())
+    assert metadata["licenses"] == [{"name": "other"}]
+    assert metadata["isPrivate"] is True

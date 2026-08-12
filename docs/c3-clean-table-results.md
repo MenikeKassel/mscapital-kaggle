@@ -76,7 +76,10 @@ were produced for different registered month ranges.
 - All predictions are finite. PSEUDO targets match the historical v5 artifact
   exactly; H2 and T3 IDs, months, and targets also match each other exactly.
 - A new single private v1 Kaggle data bundle was used. It contains only the two
-  feature parquet files; labels came from the competition mount.
+  feature parquet files; labels came from the competition mount. A post-run
+  metadata audit found that the private bundle generator had inherited an
+  unsupported `CC0-1.0` declaration. The public generator now uses `other`;
+  no dataset content or prediction was made public.
 - Prediction arrays, component arrays, histories, logs, model weights, and
   private data remain excluded from the public repository.
 - No Kaggle competition submission was created.

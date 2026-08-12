@@ -81,7 +81,7 @@ def stage_dataset(data_root: Path, output: Path) -> Path:
     metadata = {
         "title": "MSCapital Clean Table v2 Data",
         "id": f"kasselmenike/{DATASET_SLUG}",
-        "licenses": [{"name": "CC0-1.0"}],
+        "licenses": [{"name": "other"}],
         "isPrivate": True,
     }
     (output / "dataset-metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
