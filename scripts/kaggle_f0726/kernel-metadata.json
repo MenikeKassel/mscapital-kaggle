@@ -1,0 +1,13 @@
+{
+  "id": "kasselmenike/msc-f0726-trees",
+  "title": "MSC F0726 Trees",
+  "code_file": "kaggle_f0726_trees.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "competition_sources": ["ms-capital-real-financial-market-forecasting"],
+  "dataset_sources": ["kasselmenike/msc-f0726-data"],
+  "model_sources": []
+}
