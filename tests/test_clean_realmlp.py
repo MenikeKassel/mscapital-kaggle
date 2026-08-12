@@ -202,8 +202,15 @@ def test_summary_uses_required_public_report_filenames(tmp_path):
     for outer in ("PSEUDO", "H2", "T3", "T4"):
         directory = root / outer
         directory.mkdir(parents=True)
+        from mscapital.splits import NESTED_SPLITS
+
+        split = NESTED_SPLITS[outer]
+        months = np.arange(split.outer_valid.start, split.outer_valid.end + 1, dtype=np.int16)
         manifest = {
             "experiment_id": f"clean-realmlp-v2a-{outer.lower()}",
+            "status": "complete",
+            "train_months": list(split.refit_train.as_tuple()),
+            "valid_months": list(split.outer_valid.as_tuple()),
             "scores": {"cosine_uncentered": 0.1},
             "best_step": 10,
             "best_progress": 1.0,
@@ -213,10 +220,25 @@ def test_summary_uses_required_public_report_filenames(tmp_path):
                 "nan_or_inf": 0,
                 "prediction": {"mean": 0.0, "std": 1.0, "nan_or_inf": 0},
                 "target": {"std": 1.0},
+                "n_outer_valid": len(months),
             },
         }
         (directory / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        np.savez_compressed(
+            directory / "predictions.npz",
+            sample_id=np.arange(len(months)),
+            month=months,
+            target=np.ones(len(months)),
+            pred=np.ones(len(months)),
+            split=np.full(len(months), f"{outer}:outer_valid"),
+        )
 
     summarize_outer(tmp_path)
     assert (tmp_path / "clean_realmlp_v2a_report.json").exists()
     assert (tmp_path / "clean_realmlp_v2a_report.md").exists()
+
+    bad = json.loads((root / "T4" / "manifest.json").read_text(encoding="utf-8"))
+    bad["valid_months"] = [51, 60]
+    (root / "T4" / "manifest.json").write_text(json.dumps(bad), encoding="utf-8")
+    with np.testing.assert_raises_regex(ValueError, "valid months"):
+        summarize_outer(tmp_path)

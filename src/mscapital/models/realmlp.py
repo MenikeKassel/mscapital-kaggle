@@ -774,7 +774,7 @@ def load_frame(train_path: str | Path, labels_path: str | Path, *, max_rows_per_
 
 def _outer_report_md(name: str, result: Mapping[str, Any]) -> str:
     score = result["diagnostics"].get("cosine_uncentered")
-    lines = [f"# Clean RealMLP-v2a — {name}", "", f"- outer score (uncentered cosine): `{score:.9f}`", f"- best epoch/progress: `{result['best_epoch']}` / `{result['best_progress']:.4f}`", f"- best step: `{result['best_step']}`", f"- model parameters: `{result['model_parameters']:,}`", "", "## Diagnostics", "", "```json", json.dumps(result["diagnostics"], indent=2, sort_keys=True), "```", ""]
+    lines = [f"# Clean RealMLP-v2a - {name}", "", f"- outer score (uncentered cosine): `{score:.9f}`", f"- best epoch/progress: `{result['best_epoch']}` / `{result['best_progress']:.4f}`", f"- best step: `{result['best_step']}`", f"- model parameters: `{result['model_parameters']:,}`", "", "## Diagnostics", "", "```json", json.dumps(result["diagnostics"], indent=2, sort_keys=True), "```", ""]
     if result.get("legacy_correlation") is not None:
         lines.extend([f"- legacy PSEUDO prediction Pearson correlation: `{result['legacy_correlation']:.9f}`", ""])
     return "\n".join(lines)
@@ -822,6 +822,16 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
     outer_mask = (months >= split.outer_valid.start) & (months <= split.outer_valid.end)
     if not inner_train_mask.any() or not inner_tune_mask.any() or not refit_mask.any() or not outer_mask.any():
         raise ValueError(f"{outer_name} has an empty temporal partition")
+    for partition_name, partition_range, partition_mask in (
+        ("inner_train", split.inner_train, inner_train_mask),
+        ("inner_tune", split.inner_tune, inner_tune_mask),
+        ("refit_train", split.refit_train, refit_mask),
+        ("outer_valid", split.outer_valid, outer_mask),
+    ):
+        actual_months = set(int(value) for value in np.unique(months[partition_mask]))
+        expected_months = set(range(partition_range.start, partition_range.end + 1))
+        if actual_months != expected_months:
+            raise ValueError(f"{outer_name} {partition_name} has incomplete month coverage")
     raw_features = tuple(frame.features.columns)
     started = time.perf_counter()
     inner_pre = CleanRealMLPPreprocessor(raw_features, cfg).fit(frame.features.loc[inner_train_mask], frame.target[inner_train_mask])
@@ -921,7 +931,33 @@ def summarize_outer(artifact_root: str | Path, experiment_id: str = "clean-realm
         path = root / experiment_id / name / "manifest.json"
         if not path.exists():
             continue
-        rows.append(json.loads(path.read_text(encoding="utf-8")))
+        row = json.loads(path.read_text(encoding="utf-8"))
+        split = NESTED_SPLITS[name]
+        if row.get("status") != "complete":
+            raise ValueError(f"{name} manifest is not complete")
+        if tuple(row.get("train_months") or ()) != split.refit_train.as_tuple():
+            raise ValueError(f"{name} manifest train months do not match the registry")
+        if tuple(row.get("valid_months") or ()) != split.outer_valid.as_tuple():
+            raise ValueError(f"{name} manifest valid months do not match the registry")
+        prediction_path = path.with_name("predictions.npz")
+        if not prediction_path.exists():
+            raise FileNotFoundError(f"missing predictions for {name}")
+        with np.load(prediction_path) as prediction:
+            required = {"sample_id", "month", "target", "pred", "split"}
+            if not required.issubset(prediction.files):
+                raise ValueError(f"{name} predictions are missing required arrays")
+            row_count = len(prediction["pred"])
+            if row_count != int(row["diagnostics"]["n_outer_valid"]):
+                raise ValueError(f"{name} prediction row count does not match its manifest")
+            prediction_months = set(int(value) for value in np.unique(prediction["month"]))
+            expected_months = set(range(split.outer_valid.start, split.outer_valid.end + 1))
+            if prediction_months != expected_months:
+                raise ValueError(f"{name} predictions have incomplete month coverage")
+            if len(np.unique(prediction["sample_id"])) != row_count:
+                raise ValueError(f"{name} predictions contain duplicate sample_id values")
+            if not np.isfinite(prediction["pred"]).all():
+                raise ValueError(f"{name} predictions contain NaN or infinite values")
+        rows.append(row)
     if len(rows) != 4:
         raise FileNotFoundError(f"expected four completed outer manifests under {root / experiment_id}")
     scores = [float(row["scores"]["cosine_uncentered"]) for row in rows]

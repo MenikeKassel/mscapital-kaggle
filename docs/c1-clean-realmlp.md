@@ -10,6 +10,7 @@ selection, and model refits inside the permitted historical months.
 From the repository root, expose the source tree and use the project venv:
 
 ```powershell
+& '.\.venv\Scripts\python' -m pip install -e '.[clean-realmlp]'
 $env:PYTHONPATH = "$PWD\src"
 & '.\.venv\Scripts\python' -m mscapital clean-realmlp `
   --config '.\configs\clean-realmlp-v2a.json' `
