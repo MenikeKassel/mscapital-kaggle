@@ -210,7 +210,8 @@ CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和。
 
 - Inner-only raw/std/RMS × `0.00-1.00` 校准，fold-adaptive outer: **0.142649 / 0.141762 / 0.143515 / 0.156924**。
 - 生产规则冻结为 `0.63×RMS(30ep RealMLP) + 0.37×RMS(Clean Table)`。
-- 统一生产规则四折全正，outer: **0.142358 / 0.141795 / 0.143515 / 0.156924**；描述性均值 **0.146148**，相对 RealMLP 平均 **+0.004961**，通过 `+0.0005` 门禁。
+- 各折严格 inner-only 校准均全正，描述性均值 **0.146212**，相对 RealMLP 平均 **+0.005026**，通过 `+0.0005` 门禁。
+- 统一生产权重是四个 inner 选择的后验聚合；因 T3/T4 inner m41-50 与 PSEUDO outer 重叠，禁止把统一权重回评 PSEUDO 并声称是无泄漏 outer 分数。
 - 数值 scale 不从 outer/test 拟合；按冻结规则等待 canonical rolling OOF m51-70 估计。
 - Clean Baseline v2 现已冻结，后续 M01-M04 不得根据 alpha 结果回改。详见 `docs/c4-clean-baseline-results.md`。
 

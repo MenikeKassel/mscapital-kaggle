@@ -115,7 +115,7 @@ def calibrate_clean_baseline(
         weights.append(calibrator.result.weight)
         fold_output = output_root / outer_name
         save_predictions(
-            fold_output / "fold_adaptive_predictions.npz", sample_id=realmlp_outer["sample_id"],
+            fold_output / "predictions.npz", sample_id=realmlp_outer["sample_id"],
             month=realmlp_outer["month"], target=realmlp_outer["target"], pred=final,
             split=np.full(final.size, outer_name),
         )
@@ -137,58 +137,26 @@ def calibrate_clean_baseline(
     config_hash = hashlib.sha256(
         json.dumps(config_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    production_deltas = []
+    deltas = [row["delta_vs_realmlp"] for row in rows]
     for row in rows:
         outer_name = row["outer"]
         split = NESTED_SPLITS[outer_name]
-        realmlp_inner, table_inner = _load_aligned(
-            realmlp_root / outer_name / "inner_predictions.npz",
-            table_root / outer_name / "inner_predictions.npz",
-            expected_months=split.inner_tune.as_tuple(),
-        )
-        realmlp_outer, table_outer = _load_aligned(
-            realmlp_root / outer_name / "predictions.npz",
-            table_root / outer_name / "predictions.npz",
-            expected_months=split.outer_valid.as_tuple(),
-        )
-        production_calibrator = EnsembleCalibrator((production["method"],)).fit(
-            realmlp_inner["pred"], table_inner["pred"], realmlp_inner["target"],
-            weight_grid=np.array([production["table_weight"]]),
-        )
-        production_score = production_calibrator.score(
-            realmlp_outer["pred"], table_outer["pred"], realmlp_outer["target"]
-        )
-        row["production_score"] = production_score
-        row["production_delta_vs_realmlp"] = production_score - row["realmlp_score"]
-        production_deltas.append(row["production_delta_vs_realmlp"])
-        production_prediction = production_calibrator.transform(
-            realmlp_outer["pred"], table_outer["pred"]
-        )
         fold_output = output_root / outer_name
-        save_predictions(
-            fold_output / "predictions.npz", sample_id=realmlp_outer["sample_id"],
-            month=realmlp_outer["month"], target=realmlp_outer["target"], pred=production_prediction,
-            split=np.full(production_prediction.size, outer_name),
-        )
-        assert production_calibrator.result is not None
-        (fold_output / "production_calibration.json").write_text(
-            json.dumps(asdict(production_calibrator.result), indent=2), encoding="utf-8"
-        )
         ExperimentManifest(
             experiment_id=f"{experiment_id}-{outer_name.lower()}", status="frozen",
             config_hash=config_hash,
             train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(),
-            scores={"cosine_uncentered": production_score}, diagnostics=row,
+            scores={"cosine_uncentered": row["final_score"]}, diagnostics=row,
         ).write(fold_output)
     gate = {
-        "applies_to": "production_rule",
-        "all_outers_non_degrading": all(delta >= 0.0 for delta in production_deltas),
-        "mean_delta": float(np.mean(production_deltas)),
+        "applies_to": "fold_specific_nested_calibrations",
+        "all_outers_non_degrading": all(delta >= 0.0 for delta in deltas),
+        "mean_delta": float(np.mean(deltas)),
         "required_mean_delta": 0.0005,
     }
     gate["passed"] = bool(gate["all_outers_non_degrading"] and gate["mean_delta"] >= gate["required_mean_delta"])
     if not gate["passed"]:
-        raise ValueError(f"Clean Baseline v2 production gate failed: {gate}")
+        raise ValueError(f"Clean Baseline v2 nested gate failed: {gate}")
     report = {
         "experiment_id": experiment_id,
         "status": "frozen",
@@ -197,7 +165,6 @@ def calibrate_clean_baseline(
         "mean_final_score": float(np.mean([row["final_score"] for row in rows])),
         "mean_realmlp_score": float(np.mean([row["realmlp_score"] for row in rows])),
         "mean_table_score": float(np.mean([row["table_score"] for row in rows])),
-        "mean_production_score": float(np.mean([row["production_score"] for row in rows])),
         "gate": gate,
         "production": production,
         "note": "Outer folds are correlated temporal stress tests, not independent samples.",
@@ -207,19 +174,18 @@ def calibrate_clean_baseline(
     (output_root / "clean_baseline_v2_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     lines = [
         "# Clean Baseline v2", "",
-        "| Outer | Inner choice | Weight | RealMLP | Fold adaptive | Production | Production delta |",
-        "|---|---|---:|---:|---:|---:|---:|",
+        "| Outer | Method | Table weight | RealMLP | Table | Final | Delta | Corr |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
         lines.append(
             f"| {row['outer']} | {row['method']} | {row['table_weight']:.2f} | "
-            f"{row['realmlp_score']:.9f} | {row['final_score']:.9f} | {row['production_score']:.9f} | "
-            f"{row['production_delta_vs_realmlp']:+.9f} |"
+            f"{row['realmlp_score']:.9f} | {row['table_score']:.9f} | {row['final_score']:.9f} | "
+            f"{row['delta_vs_realmlp']:+.9f} | {row['outer_prediction_corr']:.4f} |"
         )
     lines += [
-        "", f"Mean fold-adaptive score: `{report['mean_final_score']:.9f}`.",
-        f"Mean production score: `{report['mean_production_score']:.9f}`.",
-        f"Production mean delta vs RealMLP: `{gate['mean_delta']:+.9f}` (gate passed).", "",
+        "", f"Mean final score: `{report['mean_final_score']:.9f}`.",
+        f"Nested mean delta vs RealMLP: `{gate['mean_delta']:+.9f}` (gate passed).", "",
         f"Production rule: `{production['method']}`, Table weight `{production['table_weight']:.2f}`; "
         "component scales will be fitted on canonical rolling OOF m51-70.", "", report["note"],
     ]

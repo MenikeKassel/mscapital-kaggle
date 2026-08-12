@@ -15,6 +15,7 @@
     "production_scale_source": "canonical_rolling_oof_months_51_70"
   },
   "gate": {
+    "applies_to": "fold_specific_nested_calibrations",
     "all_outers_non_degrading": true,
     "minimum_mean_delta": 0.0005
   }

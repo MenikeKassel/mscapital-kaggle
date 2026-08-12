@@ -44,7 +44,7 @@ def test_calibration_selection_does_not_depend_on_outer_predictions(tmp_path: Pa
     assert [(row["method"], row["table_weight"]) for row in first["rows"]] == [
         (row["method"], row["table_weight"]) for row in second["rows"]
     ]
-    assert first["gate"]["applies_to"] == "production_rule"
+    assert first["gate"]["applies_to"] == "fold_specific_nested_calibrations"
     assert first["gate"]["passed"] is True
 
 
