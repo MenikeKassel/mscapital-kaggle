@@ -137,6 +137,53 @@ def _cmd_summarize_clean_realmlp(args: argparse.Namespace) -> None:
     print(json.dumps({"status": "complete", "mean_score": report["mean_score"], "report": str(Path(args.artifact_root) / report_name)}, indent=2))
 
 
+def _cmd_clean_table(args: argparse.Namespace) -> None:
+    from .models.clean_table import CleanTableConfig, load_table_frame, run_outer
+
+    mapping = _load_json_mapping(args.config)
+    data_root = Path(os.environ.get("MSCAP_DATA_ROOT", mapping.get("data_root", ".")))
+    features_path = _resolve_data_path(args.features_path or mapping.get("features_path"), data_root, "processed/train_features.parquet")
+    micro_path = _resolve_data_path(args.micro_path or mapping.get("micro_path"), data_root, "processed/micro_features_train.parquet")
+    labels_path = _resolve_data_path(args.labels_path or mapping.get("labels_path"), data_root, "raw/train/label.feather")
+    artifact_root = Path(args.artifact_root or os.environ.get("MSCAP_ARTIFACT_ROOT", mapping.get("artifact_root", "output/experiments")))
+    config = CleanTableConfig.from_mapping(mapping)
+    overrides = {}
+    if args.device:
+        overrides["device"] = args.device
+    if args.max_rows_per_month is not None:
+        overrides["max_rows_per_month"] = args.max_rows_per_month
+    if overrides:
+        config = CleanTableConfig(**{**config.__dict__, **overrides})
+    frame = load_table_frame(
+        features_path, micro_path, labels_path, max_rows_per_month=config.max_rows_per_month
+    )
+    selected = tuple(NESTED_SPLITS) if args.outer == "ALL" else (args.outer,)
+    results = [
+        run_outer(
+            frame, outer, config, artifact_root / args.experiment_id,
+            experiment_id=args.experiment_id,
+            data_paths=(features_path, micro_path, labels_path),
+            legacy_pseudo_path=args.legacy_pseudo or mapping.get("legacy_pseudo_path"),
+        )
+        for outer in selected
+    ]
+    print(json.dumps({"status": "complete", "results": results}, indent=2))
+
+
+def _cmd_summarize_clean_table(args: argparse.Namespace) -> None:
+    from .models.clean_table import summarize_outer
+
+    report = summarize_outer(args.artifact_root, args.experiment_id, args.legacy_pseudo)
+    print(json.dumps({"status": "complete", "mean_score": report["mean_score"]}, indent=2))
+
+
+def _cmd_verify_legacy_table(args: argparse.Namespace) -> None:
+    from .models.clean_table import verify_legacy_anchor
+
+    result = verify_legacy_anchor(args.table_pseudo, args.realmlp_pseudo)
+    print(json.dumps(result, indent=2))
+
+
 def _cmd_realmlp_inner(args: argparse.Namespace) -> None:
     from .models.realmlp import RealMLPConfig, load_frame, run_inner_diagnostic
 
@@ -328,6 +375,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--experiment-id", default="clean-realmlp-v2a")
     p.add_argument("--legacy-pseudo", type=Path)
     p.set_defaults(func=_cmd_summarize_clean_realmlp)
+    p = sub.add_parser("clean-table", help="run one or all nested Clean Table v2 outer folds")
+    p.add_argument("--config", type=Path, required=True)
+    p.add_argument("--outer", choices=tuple(NESTED_SPLITS) + ("ALL",), required=True)
+    p.add_argument("--experiment-id", default="clean-table-v2")
+    p.add_argument("--features-path", type=Path)
+    p.add_argument("--micro-path", type=Path)
+    p.add_argument("--labels-path", type=Path)
+    p.add_argument("--legacy-pseudo", type=Path)
+    p.add_argument("--artifact-root", type=Path)
+    p.add_argument("--device")
+    p.add_argument("--max-rows-per-month", type=int)
+    p.set_defaults(func=_cmd_clean_table)
+    p = sub.add_parser("summarize-clean-table", help="summarize four completed Clean Table outer folds")
+    p.add_argument("--artifact-root", type=Path, default=Path("output/experiments"))
+    p.add_argument("--experiment-id", default="clean-table-v2")
+    p.add_argument("--legacy-pseudo", type=Path)
+    p.set_defaults(func=_cmd_summarize_clean_table)
+    p = sub.add_parser("verify-legacy-table", help="recompute the three frozen v5/v7 PSEUDO anchors")
+    p.add_argument("--table-pseudo", type=Path, required=True)
+    p.add_argument("--realmlp-pseudo", type=Path, required=True)
+    p.set_defaults(func=_cmd_verify_legacy_table)
     p = sub.add_parser("realmlp-inner", help="run a C2 inner-only RealMLP diagnostic")
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--outer", choices=("PSEUDO", "H2", "T3", "ALL"), required=True)
