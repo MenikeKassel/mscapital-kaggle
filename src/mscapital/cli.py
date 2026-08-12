@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from pathlib import Path
 
@@ -17,6 +18,17 @@ from .metrics import cosine_uncentered, normalize_prediction
 from .diagnostics import prediction_diagnostics, drift_report
 from .residual import OOFBlock, build_canonical_oof, outer_residual, rolling_window_spec
 from .splits import NESTED_SPLITS, OUTER_SPLITS
+
+
+def _load_json_mapping(path: Path | None) -> dict:
+    if path is None:
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _resolve_data_path(value: str | Path | None, data_root: Path, fallback: str) -> Path:
+    path = Path(value if value is not None else fallback)
+    return path if path.is_absolute() else data_root / path
 
 
 def _read_arrow(path: str | Path) -> dict[str, np.ndarray]:
@@ -78,6 +90,50 @@ def _cmd_clean_baseline(args: argparse.Namespace) -> None:
         encoding="utf-8",
     )
     print(json.dumps({"status": manifest.status, "manifest": str(directory / "manifest.json")}, indent=2))
+
+
+def _cmd_clean_realmlp(args: argparse.Namespace) -> None:
+    from .models.realmlp import RealMLPConfig, load_frame, run_outer
+
+    mapping = _load_json_mapping(args.config)
+    data_root = Path(os.environ.get("MSCAP_DATA_ROOT", mapping.get("data_root", ".")))
+    train_path = _resolve_data_path(args.train_path or mapping.get("train_path"), data_root, "processed/f0726_train_f32.parquet")
+    labels_path = _resolve_data_path(args.labels_path or mapping.get("labels_path"), data_root, "raw/train/label.feather")
+    artifact_root = Path(args.artifact_root or os.environ.get("MSCAP_ARTIFACT_ROOT", mapping.get("artifact_root", "output/experiments")))
+    experiment_id = args.experiment_id
+    model_config = RealMLPConfig.from_mapping(mapping)
+    overrides = {}
+    if args.device:
+        overrides["device"] = args.device
+    if args.max_rows_per_month is not None:
+        overrides["max_rows_per_month"] = args.max_rows_per_month
+    if overrides:
+        model_config = RealMLPConfig(**{**model_config.__dict__, **overrides})
+    frame = load_frame(train_path, labels_path, max_rows_per_month=model_config.max_rows_per_month)
+    legacy_path = args.legacy_pseudo or mapping.get("legacy_pseudo_path")
+    if legacy_path is not None:
+        legacy_path = Path(legacy_path)
+    selected = tuple(NESTED_SPLITS) if args.outer == "ALL" else (args.outer,)
+    results = []
+    for outer in selected:
+        result = run_outer(
+            frame,
+            outer,
+            model_config,
+            artifact_root / experiment_id,
+            data_paths=(train_path, labels_path),
+            legacy_pseudo_path=legacy_path,
+        )
+        results.append({"outer": outer, "score": result["diagnostics"]["cosine_uncentered"], "artifact": str(artifact_root / experiment_id / outer)})
+    print(json.dumps({"status": "complete", "results": results}, indent=2))
+
+
+def _cmd_summarize_clean_realmlp(args: argparse.Namespace) -> None:
+    from .models.realmlp import summarize_outer
+
+    report = summarize_outer(args.artifact_root, args.experiment_id, args.legacy_pseudo)
+    report_name = f"{args.experiment_id.replace('-', '_')}_report.json"
+    print(json.dumps({"status": "complete", "mean_score": report["mean_score"], "report": str(Path(args.artifact_root) / report_name)}, indent=2))
 
 
 def _parse_block(value: str) -> tuple[str, Path]:
@@ -209,6 +265,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", type=Path)
     p.add_argument("--experiment-id", default="clean-baseline-v2")
     p.set_defaults(func=_cmd_clean_baseline)
+    p = sub.add_parser("clean-realmlp", help="run one or all nested Clean RealMLP-v2a outer folds")
+    p.add_argument("--config", type=Path)
+    p.add_argument("--outer", choices=tuple(NESTED_SPLITS) + ("ALL",), required=True)
+    p.add_argument("--experiment-id", default="clean-realmlp-v2a")
+    p.add_argument("--train-path", type=Path)
+    p.add_argument("--labels-path", type=Path)
+    p.add_argument("--legacy-pseudo", type=Path)
+    p.add_argument("--artifact-root", type=Path)
+    p.add_argument("--device")
+    p.add_argument("--max-rows-per-month", type=int)
+    p.set_defaults(func=_cmd_clean_realmlp)
+    p = sub.add_parser("summarize-clean-realmlp", help="summarize four completed Clean RealMLP outer folds")
+    p.add_argument("--artifact-root", type=Path, default=Path("output/experiments"))
+    p.add_argument("--experiment-id", default="clean-realmlp-v2a")
+    p.add_argument("--legacy-pseudo", type=Path)
+    p.set_defaults(func=_cmd_summarize_clean_realmlp)
     p = sub.add_parser("build-residual-oof", help="merge unique rolling OOF blocks")
     p.add_argument("--block", action="append", required=True, help="NAME=PATH, name must include train end")
     p.add_argument("--output", type=Path, required=True)

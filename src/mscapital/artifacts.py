@@ -70,6 +70,7 @@ class ExperimentManifest:
     metric: str = "cosine_uncentered"
     scores: dict[str, float] = field(default_factory=dict)
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    environment: dict[str, Any] = field(default_factory=dict)
     best_step: int | None = None
     best_progress: float | None = None
     runtime_seconds: float | None = None
