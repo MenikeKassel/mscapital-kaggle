@@ -1,15 +1,19 @@
 import numpy as np
 import pandas as pd
+import hashlib
 
 from mscapital.models.realmlp import (
     CleanRealMLPPreprocessor,
+    PreparedFrame,
     RQKMeansEncoder,
     RealMLPConfig,
+    TrainResult,
     _build_torch_classes,
     _environment_versions,
     _parameter_groups,
     flat_anneal,
     load_frame,
+    run_outer,
     uncentered_cosine_torch,
 )
 
@@ -139,3 +143,53 @@ def test_load_frame_injects_label_month_when_feature_table_omits_it(tmp_path):
     labels.to_feather(label_path)
     with np.testing.assert_raises_regex(ValueError, "target columns disagree"):
         load_frame(feature_path, label_path)
+
+
+def test_outer_rewrite_cannot_change_inner_or_refit_state(monkeypatch, tmp_path):
+    months = np.repeat(np.arange(71), 4)
+    sample_id = np.arange(months.size)
+    target = np.sin(sample_id / 7.0) * 0.01
+    features = pd.DataFrame(
+        {
+            "signal": target + np.cos(sample_id / 5.0) * 0.001,
+            "other": np.linspace(-1.0, 1.0, sample_id.size),
+            "t_large_sell_95": (sample_id % 3).astype(float),
+        }
+    )
+    cfg = RealMLPConfig(epochs=10, quantile_bins=8)
+    captures: list[tuple[str, str, str]] = []
+
+    def digest(value):
+        array = np.ascontiguousarray(value)
+        return hashlib.sha256(array.tobytes()).hexdigest()
+
+    def fake_inner(x_train, c_train, y_train, x_tune, c_tune, y_tune, config):
+        rq_hash = digest(RQKMeansEncoder(3, 3).fit(y_train).encode(y_train))
+        captures.append(("inner", digest(x_train), rq_hash))
+        predictions = np.full(y_tune.shape, 0.001, dtype=np.float32)
+        return TrainResult(predictions, [{"epoch": 4.0}], 4, 4, 0.4, 1)
+
+    def fake_refit(x_train, c_train, y_train, x_valid, c_valid, progress, config):
+        rq_hash = digest(RQKMeansEncoder(3, 3).fit(y_train).encode(y_train))
+        captures.append(("refit", digest(x_train), rq_hash))
+        return np.full(x_valid.shape[0], 0.001, dtype=np.float32), [{"epoch": 4.0}], 4, progress
+
+    monkeypatch.setattr("mscapital.models.realmlp.train_inner", fake_inner)
+    monkeypatch.setattr("mscapital.models.realmlp._train_refit_predict", fake_refit)
+    base = PreparedFrame(sample_id, months.astype(np.int16), target.copy(), features.copy())
+    first = run_outer(base, "PSEUDO", cfg, tmp_path / "first")
+    first_captures = tuple(captures)
+    captures.clear()
+
+    changed_features = features.copy()
+    outer = months >= 33
+    changed_features.loc[outer, ["signal", "other"]] = 1e9
+    changed_target = target.copy()
+    changed_target[outer] = -999.0
+    changed = PreparedFrame(sample_id, months.astype(np.int16), changed_target, changed_features)
+    second = run_outer(changed, "PSEUDO", cfg, tmp_path / "second")
+
+    assert first["best_progress"] == second["best_progress"] == 0.4
+    assert first["preprocessing"]["inner_state_hash"] == second["preprocessing"]["inner_state_hash"]
+    assert first["preprocessing"]["refit_state_hash"] == second["preprocessing"]["refit_state_hash"]
+    assert first_captures == tuple(captures)
