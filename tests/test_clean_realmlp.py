@@ -66,6 +66,23 @@ def test_half_mask_and_legacy_optimizer_grouping():
     assert cfg.rq_head_layers == 2
     assert len(model.code_heads) == 2
 
+    full_model = model_cls(n_numeric=3, cat_dims=[3], cfg=RealMLPConfig(mask_mode="full"))
+    full_mask = full_model.feature_mask.detach().cpu().numpy()
+    no_mask_model = model_cls(n_numeric=3, cat_dims=[3], cfg=RealMLPConfig(mask_mode="none"))
+    no_mask = no_mask_model.feature_mask.detach().cpu().numpy()
+    for member in range(16):
+        assert np.flatnonzero(~mask[member]).tolist() == list(range(member, mask.shape[1], 8))
+        assert np.flatnonzero(~full_mask[member]).tolist() == list(range(member, full_mask.shape[1], 16))
+    assert no_mask.all()
+
+    corrected_cfg = RealMLPConfig(optimizer_grouping="first_ntp")
+    corrected_model = model_cls(n_numeric=3, cat_dims=[3], cfg=corrected_cfg)
+    corrected_groups = _parameter_groups(corrected_model, torch, corrected_cfg)
+    corrected_first = corrected_groups[2]["params"]
+    first_ntp_weight = dict(corrected_model.named_parameters())["shared.2.weight"]
+    assert len(corrected_first) == 1
+    assert corrected_first[0] is first_ntp_weight
+
 
 def test_uncentered_cosine_zero_norm_is_finite_and_schedule_is_explicit():
     torch, _, _, _ = _build_torch_classes()
@@ -174,7 +191,7 @@ def test_outer_rewrite_cannot_change_inner_or_refit_state(monkeypatch, tmp_path)
     def fake_refit(x_train, c_train, y_train, x_valid, c_valid, progress, config):
         rq_hash = digest(RQKMeansEncoder(3, 3).fit(y_train).encode(y_train))
         captures.append(("refit", digest(x_train), rq_hash))
-        return np.full(x_valid.shape[0], 0.001, dtype=np.float32), [{"epoch": 4.0}], 4, progress
+        return np.full(x_valid.shape[0], 0.001, dtype=np.float32), [{"epoch": 4.0}], 4, progress, rq_hash
 
     monkeypatch.setattr("mscapital.models.realmlp.train_inner", fake_inner)
     monkeypatch.setattr("mscapital.models.realmlp._train_refit_predict", fake_refit)

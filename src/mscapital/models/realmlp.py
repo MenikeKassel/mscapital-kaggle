@@ -82,6 +82,16 @@ class RealMLPConfig:
     categorical_columns: tuple[str, ...] = ("t_large_sell_95",)
     device: str = "auto"
     max_rows_per_month: int | None = None
+    mask_mode: str = "half"
+    optimizer_grouping: str = "legacy"
+
+    def __post_init__(self) -> None:
+        if self.epochs <= 0:
+            raise ValueError("epochs must be positive")
+        if self.mask_mode not in {"half", "full", "none"}:
+            raise ValueError("mask_mode must be half, full, or none")
+        if self.optimizer_grouping not in {"legacy", "first_ntp"}:
+            raise ValueError("optimizer_grouping must be legacy or first_ntp")
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> "RealMLPConfig":
@@ -383,6 +393,18 @@ class RQKMeansEncoder:
             residual = residual - kmeans.cluster_centers_[code]
         return np.stack(codes, axis=1).astype(np.int64)
 
+    @property
+    def state_hash(self) -> str:
+        if not self.codebooks:
+            raise RuntimeError("fit must be called before state_hash")
+        digest = hashlib.sha256()
+        digest.update(f"{self.n_layers}|{self.codebook_size}".encode("ascii"))
+        for codebook in self.codebooks:
+            centers = np.asarray(codebook.cluster_centers_, dtype=np.float64)
+            digest.update(str(centers.shape).encode("ascii"))
+            digest.update(np.ascontiguousarray(centers).tobytes())
+        return digest.hexdigest()
+
 
 def _build_torch_classes():
     torch, nn, F = _require_torch()
@@ -468,6 +490,7 @@ def _build_torch_classes():
         def __init__(self, n_numeric: int, cat_dims: Sequence[int], cfg: RealMLPConfig):
             super().__init__()
             self.n_ens = cfg.n_ens
+            self.mask_mode = cfg.mask_mode
             self.cate = CategoricalFeatureLayer(cfg.n_ens, cat_dims, cfg.embed_dim, cfg.onehotmax)
             self.num_embed = PBLDEmbedding(cfg.n_ens, n_numeric, cfg.hidden_dim, 3)
             total_dim = n_numeric * 3 + sum(dim if dim <= cfg.onehotmax else cfg.embed_dim for dim in cat_dims)
@@ -485,8 +508,11 @@ def _build_torch_classes():
 
         def _create_mask(self, n_features: int):
             mask = torch.ones(self.n_ens, n_features, dtype=torch.bool)
+            if self.mask_mode == "none":
+                return mask
+            stride = self.n_ens // 2 if self.mask_mode == "half" else self.n_ens
             for i in range(self.n_ens):
-                mask[i, i:: self.n_ens // 2] = False
+                mask[i, i::stride] = False
             return mask
 
         def forward(self, x_num, x_cat, return_codes: bool = False):
@@ -517,8 +543,9 @@ def uncentered_cosine_torch(pred, target, torch_module):
 def _parameter_groups(model, torch_module, cfg: RealMLPConfig):
     scale, pbld, first, other, bias = [], [], [], [], []
     first_id = None
+    target_name = "shared.0.weight" if cfg.optimizer_grouping == "legacy" else "shared.2.weight"
     for name, param in model.named_parameters():
-        if "shared.0.weight" in name:  # preserve the legacy grouping quirk
+        if target_name in name:
             first_id = id(param)
             break
     for name, param in model.named_parameters():
@@ -579,6 +606,7 @@ class TrainResult:
     best_step: int
     best_progress: float
     model_parameters: int
+    rq_state_hash: str = ""
 
 
 def _loss(model_pred, target, logits, codes, progress: float, cfg: RealMLPConfig, torch_module, F):
@@ -675,7 +703,7 @@ def train_inner(x_train, c_train, y_train, x_tune, c_tune, y_tune, cfg: RealMLPC
     for name, parameter in model.named_parameters():
         parameter.data.copy_(best_state[name].to(device))
     predictions = _predict(model, x_tune, c_tune, cfg, str(device), torch)
-    return TrainResult(predictions, history, best_epoch, best_step, best_epoch / cfg.epochs, sum(p.numel() for p in model.parameters()))
+    return TrainResult(predictions, history, best_epoch, best_step, best_epoch / cfg.epochs, sum(p.numel() for p in model.parameters()), rq.state_hash)
 
 
 def train_refit(x_train, c_train, y_train, progress_limit: float, cfg: RealMLPConfig) -> tuple[np.ndarray, list[dict[str, float]], int, int]:
@@ -809,7 +837,126 @@ def _environment_versions() -> dict[str, Any]:
     }
 
 
-def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_dir: str | Path, *, data_paths: Sequence[str | Path] = (), legacy_pseudo_path: str | Path | None = None) -> dict[str, Any]:
+def run_inner_diagnostic(
+    frame: PreparedFrame,
+    outer_name: str,
+    cfg: RealMLPConfig,
+    output_dir: str | Path,
+    *,
+    experiment_id: str = "c2-realmlp-ceiling",
+    data_paths: Sequence[str | Path] = (),
+) -> dict[str, Any]:
+    """Run only the inner search for a C2 diagnostic without touching outer valid."""
+
+    if outer_name not in NESTED_SPLITS:
+        raise KeyError(f"unknown outer split {outer_name}")
+    split = NESTED_SPLITS[outer_name]
+    output = Path(output_dir) / outer_name
+    output.mkdir(parents=True, exist_ok=True)
+    months = frame.month
+    train_mask = split.inner_train.contains(months)
+    tune_mask = split.inner_tune.contains(months)
+    for partition_name, partition_range, partition_mask in (
+        ("inner_train", split.inner_train, train_mask),
+        ("inner_tune", split.inner_tune, tune_mask),
+    ):
+        actual = set(int(value) for value in np.unique(months[partition_mask]))
+        expected = set(range(partition_range.start, partition_range.end + 1))
+        if actual != expected:
+            raise ValueError(f"{outer_name} {partition_name} has incomplete month coverage")
+
+    started = time.perf_counter()
+    preprocessor = CleanRealMLPPreprocessor(tuple(frame.features.columns), cfg).fit(
+        frame.features.loc[train_mask], frame.target[train_mask]
+    )
+    x_train, c_train = preprocessor.transform(frame.features.loc[train_mask])
+    x_tune, c_tune = preprocessor.transform(frame.features.loc[tune_mask])
+    train_target = frame.target[train_mask]
+    if cfg.target_round is not None:
+        train_target = np.round(train_target, cfg.target_round)
+    result = train_inner(
+        x_train,
+        c_train,
+        train_target,
+        x_tune,
+        c_tune,
+        frame.target[tune_mask],
+        cfg,
+    )
+    diagnostics = prediction_diagnostics(result.predictions, frame.target[tune_mask])
+    diagnostics["pearson"] = (
+        float(np.corrcoef(result.predictions, frame.target[tune_mask])[0, 1])
+        if np.std(result.predictions) and np.std(frame.target[tune_mask])
+        else 0.0
+    )
+    diagnostics.update(
+        {
+            "nan_or_inf": int((~np.isfinite(result.predictions)).sum()),
+            "n_inner_train": int(train_mask.sum()),
+            "n_inner_tune": int(tune_mask.sum()),
+            "preprocessing_state_hash": preprocessor.state_hash,
+            "rq_state_hash": result.rq_state_hash,
+        }
+    )
+    runtime = time.perf_counter() - started
+    save_predictions(
+        output / "inner_predictions.npz",
+        sample_id=frame.sample_id[tune_mask],
+        month=months[tune_mask],
+        target=frame.target[tune_mask],
+        pred=result.predictions,
+        split=np.full(result.predictions.size, f"{outer_name}:inner_tune"),
+    )
+    config_payload = json.dumps(asdict(cfg), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    manifest = ExperimentManifest(
+        experiment_id=f"{experiment_id}-{outer_name.lower()}-inner",
+        status="complete",
+        git_sha=os.environ.get("MSCAP_GIT_SHA") or git_sha(),
+        config_hash=hashlib.sha256(config_payload).hexdigest(),
+        train_months=split.inner_train.as_tuple(),
+        valid_months=split.inner_tune.as_tuple(),
+        feature_hash=feature_hash(list(preprocessor.selected_numeric) + list(preprocessor.categorical)),
+        best_step=result.best_step,
+        best_progress=result.best_progress,
+        runtime_seconds=runtime,
+        scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])},
+        diagnostics=diagnostics,
+        environment=_environment_versions(),
+    )
+    manifest.data_fingerprints = {
+        Path(path).name: _stable_file_fingerprint(path) for path in data_paths if Path(path).exists()
+    }
+    manifest.write(output)
+    (output / "training_history.json").write_text(
+        json.dumps({"inner": result.history}, indent=2), encoding="utf-8"
+    )
+    (output / "report.md").write_text(
+        "\n".join(
+            [
+                f"# C2 RealMLP inner diagnostic - {outer_name}",
+                "",
+                f"- epochs scanned: `{cfg.epochs}`",
+                f"- best epoch/progress: `{result.best_epoch}` / `{result.best_progress:.4f}`",
+                f"- tune cosine: `{diagnostics['cosine_uncentered']:.9f}`",
+                f"- runtime seconds: `{runtime:.1f}`",
+                "",
+                "This diagnostic never reads or scores the registered outer validation rows.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "outer": outer_name,
+        "best_epoch": result.best_epoch,
+        "best_progress": result.best_progress,
+        "score": float(diagnostics["cosine_uncentered"]),
+        "runtime_seconds": runtime,
+        "artifact": str(output),
+    }
+
+
+def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_dir: str | Path, *, experiment_id: str = "clean-realmlp-v2a", data_paths: Sequence[str | Path] = (), legacy_pseudo_path: str | Path | None = None) -> dict[str, Any]:
     if outer_name not in NESTED_SPLITS:
         raise KeyError(f"unknown outer split {outer_name}")
     split: NestedSplit = NESTED_SPLITS[outer_name]
@@ -843,7 +990,7 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
     refit_pre = CleanRealMLPPreprocessor(raw_features, cfg).fit(frame.features.loc[refit_mask], frame.target[refit_mask])
     x_refit, c_refit = refit_pre.transform(frame.features.loc[refit_mask])
     x_outer, c_outer = refit_pre.transform(frame.features.loc[outer_mask])
-    outer_pred, refit_history, refit_step, refit_progress = _train_refit_predict(x_refit, c_refit, np.round(frame.target[refit_mask], cfg.target_round) if cfg.target_round is not None else frame.target[refit_mask], x_outer, c_outer, inner_result.best_progress, cfg)
+    outer_pred, refit_history, refit_step, refit_progress, refit_rq_hash = _train_refit_predict(x_refit, c_refit, np.round(frame.target[refit_mask], cfg.target_round) if cfg.target_round is not None else frame.target[refit_mask], x_outer, c_outer, inner_result.best_progress, cfg)
     diagnostics = prediction_diagnostics(outer_pred, frame.target[outer_mask])
     diagnostics["pearson"] = float(np.corrcoef(outer_pred, frame.target[outer_mask])[0, 1]) if np.std(outer_pred) and np.std(frame.target[outer_mask]) else 0.0
     diagnostics["nan_or_inf"] = int((~np.isfinite(outer_pred)).sum())
@@ -870,11 +1017,11 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
         "refit_history": refit_history,
         "diagnostics": diagnostics,
         "legacy_correlation": legacy_corr,
-        "preprocessing": {"inner_state_hash": inner_pre.state_hash, "refit_state_hash": refit_pre.state_hash, "feature_hash": feature_hash(list(refit_pre.selected_numeric) + list(refit_pre.categorical)), "n_inner_train": int(inner_train_mask.sum()), "n_inner_tune": int(inner_tune_mask.sum()), "n_refit": int(refit_mask.sum()), "n_outer_valid": int(outer_mask.sum())},
+        "preprocessing": {"inner_state_hash": inner_pre.state_hash, "refit_state_hash": refit_pre.state_hash, "inner_rq_state_hash": inner_result.rq_state_hash, "refit_rq_state_hash": refit_rq_hash, "feature_hash": feature_hash(list(refit_pre.selected_numeric) + list(refit_pre.categorical)), "n_inner_train": int(inner_train_mask.sum()), "n_inner_tune": int(inner_tune_mask.sum()), "n_refit": int(refit_mask.sum()), "n_outer_valid": int(outer_mask.sum())},
         "runtime_seconds": time.perf_counter() - started,
     }
     config_payload = json.dumps(asdict(cfg), sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-    manifest = ExperimentManifest(experiment_id=f"clean-realmlp-v2a-{outer_name.lower()}", status="complete", git_sha=os.environ.get("MSCAP_GIT_SHA") or git_sha(), config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"], environment=_environment_versions())
+    manifest = ExperimentManifest(experiment_id=f"{experiment_id}-{outer_name.lower()}", status="complete", git_sha=os.environ.get("MSCAP_GIT_SHA") or git_sha(), config_hash=hashlib.sha256(config_payload).hexdigest(), train_months=split.refit_train.as_tuple(), valid_months=split.outer_valid.as_tuple(), feature_hash=result["preprocessing"]["feature_hash"], best_step=inner_result.best_step, best_progress=inner_result.best_progress, runtime_seconds=result["runtime_seconds"], scores={"cosine_uncentered": float(diagnostics["cosine_uncentered"])}, diagnostics=result["diagnostics"] | result["preprocessing"], environment=_environment_versions())
     manifest.data_fingerprints = {Path(path).name: _stable_file_fingerprint(path) for path in data_paths if Path(path).exists()}
     manifest.write(output)
     (output / "training_history.json").write_text(json.dumps({"inner": inner_result.history, "refit": refit_history}, indent=2), encoding="utf-8")
@@ -882,7 +1029,7 @@ def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_
     return result
 
 
-def _train_refit_predict(x_train, c_train, y_train, x_valid, c_valid, progress_limit: float, cfg: RealMLPConfig) -> tuple[np.ndarray, list[dict[str, float]], int, float]:
+def _train_refit_predict(x_train, c_train, y_train, x_valid, c_valid, progress_limit: float, cfg: RealMLPConfig) -> tuple[np.ndarray, list[dict[str, float]], int, float, str]:
     """Train a refit model and predict the outer validation rows."""
     torch, _, F, RealMLPRQ = _build_torch_classes()
     _set_seed(cfg.seed)
@@ -921,7 +1068,7 @@ def _train_refit_predict(x_train, c_train, y_train, x_valid, c_valid, progress_l
     original = ema.apply()
     prediction = _predict(model, x_valid, c_valid, cfg, str(device), torch)
     ema.restore(original)
-    return prediction, history, stop_step, stop_step / total_steps
+    return prediction, history, stop_step, stop_step / total_steps, rq.state_hash
 
 
 def summarize_outer(artifact_root: str | Path, experiment_id: str = "clean-realmlp-v2a", legacy_pseudo_path: str | Path | None = None) -> dict[str, Any]:
