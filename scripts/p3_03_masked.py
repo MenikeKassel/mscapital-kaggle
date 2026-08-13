@@ -85,12 +85,16 @@ def load_grid() -> tuple[np.ndarray, np.ndarray]:
     return grid, ids
 
 
-def pretrain(X: np.ndarray, device: torch.device) -> TinyLOBERT:
-    """Masked-step reconstruction on given rows."""
+def pretrain(X: np.ndarray, device: torch.device) -> tuple[TinyLOBERT, np.ndarray, np.ndarray]:
+    """Masked-step reconstruction on given rows; returns model + transform stats."""
+    Xt = np.log1p(X)
+    cmean = Xt.mean(axis=(0, 1), keepdims=True)
+    cstd = Xt.std(axis=(0, 1), keepdims=True) + 1e-8
+    Xs = (Xt - cmean) / cstd
     model = TinyLOBERT().to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
     mse = nn.MSELoss()
-    n = X.shape[0]
+    n = Xs.shape[0]
     rng = np.random.default_rng(SEED)
     model.train()
     for epoch in range(EPOCHS):
@@ -98,7 +102,7 @@ def pretrain(X: np.ndarray, device: torch.device) -> TinyLOBERT:
         total = 0.0
         for start in range(0, n, BATCH):
             idx = perm[start:start + BATCH]
-            xb = torch.from_numpy(X[idx]).to(device)
+            xb = torch.from_numpy(Xs[idx]).to(device)
             mask = torch.rand(xb.shape[0], 60, 1, device=device) < MASK_RATIO
             xm = xb.clone()
             xm[mask.expand_as(xb)] = 0.0
@@ -109,15 +113,16 @@ def pretrain(X: np.ndarray, device: torch.device) -> TinyLOBERT:
             opt.step()
             total += float(loss) * len(idx)
         print(f"  pretrain epoch {epoch + 1}/{EPOCHS} loss={total / n:.6f}")
-    return model
+    return model, cmean, cstd
 
 
-def encode(model: TinyLOBERT, X: np.ndarray, device: torch.device) -> np.ndarray:
+def encode(model: TinyLOBERT, X: np.ndarray, cmean: np.ndarray, cstd: np.ndarray, device: torch.device) -> np.ndarray:
     model.eval()
+    Xs = (np.log1p(X) - cmean) / cstd
     latents = []
     with torch.no_grad():
         for start in range(0, X.shape[0], 8192):
-            xb = torch.from_numpy(X[start:start + 8192]).to(device)
+            xb = torch.from_numpy(Xs[start:start + 8192]).to(device)
             _, h = model(xb)
             latents.append(h.mean(dim=1).cpu().numpy())
     return np.concatenate(latents, axis=0)
@@ -155,8 +160,8 @@ def main() -> None:
     for outer, (t0, t1) in INNER_TRAIN.items():
         print(f"\n=== outer {outer}: pretrain on months {t0}-{t1} ===")
         train_mask = (months >= t0) & (months <= t1)
-        model = pretrain(Xgrid[train_mask], device)
-        latent = encode(model, Xgrid, device)
+        model, cmean, cstd = pretrain(Xgrid[train_mask], device)
+        latent = encode(model, Xgrid, cmean, cstd, device)
         # diagnostics: latent vs 152-feature correlation
         Lc = np.nan_to_num(latent, nan=0.0)
         Xc = np.nan_to_num(X152, nan=0.0)

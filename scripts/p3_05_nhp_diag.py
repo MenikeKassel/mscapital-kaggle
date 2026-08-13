@@ -117,7 +117,7 @@ def main() -> None:
     #    (on the second-grid, per sample) -- approximated via rates
     #    proxy: corr(trend class, residual)
     residual = canonical.target - 0.0004019 * canonical.baseline_oof
-    r = np.corrcoef(Xc, residual)[:Xc.shape[1], Xc.shape[1]]
+    r = np.corrcoef(Xc, residual.reshape(-1, 1), rowvar=False)[:Xc.shape[1], Xc.shape[1]]
     top = np.argsort(np.abs(r))[::-1][:6]
     print("intensity-vs-residual corr top6:", [(float(r[i]), i) for i in top])
 
