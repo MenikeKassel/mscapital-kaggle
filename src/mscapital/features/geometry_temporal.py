@@ -57,8 +57,10 @@ def geometry_temporal_feature_names() -> tuple[str, ...]:
     return tuple(geometry_feature_names()) + temporal_feature_names()
 
 
-def _corr(left: np.ndarray, right: np.ndarray) -> float:
+def _corr(left: np.ndarray, right: np.ndarray, valid_mask: np.ndarray | None = None) -> float:
     mask = np.isfinite(left) & np.isfinite(right)
+    if valid_mask is not None:
+        mask &= np.asarray(valid_mask, dtype=bool)
     if int(mask.sum()) < 3:
         return 0.0
     x, y = left[mask].astype(float), right[mask].astype(float)
@@ -70,10 +72,15 @@ def _corr(left: np.ndarray, right: np.ndarray) -> float:
     return float(np.dot(x, y) / denominator)
 
 
-def _lead_lag(left: np.ndarray, right: np.ndarray) -> float:
+def _lead_lag(left: np.ndarray, right: np.ndarray, valid_mask: np.ndarray | None = None) -> float:
     if left.size < 4 or right.size < 4:
         return 0.0
-    return _corr(left[:-1], right[1:]) - _corr(left[1:], right[:-1])
+    if valid_mask is None:
+        pair_mask = None
+    else:
+        mask = np.asarray(valid_mask, dtype=bool)
+        pair_mask = mask[:-1] & mask[1:]
+    return _corr(left[:-1], right[1:], pair_mask) - _corr(left[1:], right[:-1], pair_mask)
 
 
 def _valid_quote(row_values: Mapping[str, np.ndarray]) -> np.ndarray:
@@ -141,10 +148,10 @@ def _window_features(path: np.ndarray, covered: np.ndarray, update_count: int, w
     pairs = ((0, 2), (1, 3), (4, 5), (6, 7))
     offset = 2
     for left, right in pairs:
-        output[offset] = _corr(segment[:, left], segment[:, right])
+        output[offset] = _corr(segment[:, left], segment[:, right], segment_covered)
         offset += 1
     for left, right in pairs:
-        output[offset] = _lead_lag(segment[:, left], segment[:, right])
+        output[offset] = _lead_lag(segment[:, left], segment[:, right], segment_covered)
         offset += 1
     for signal in (6, 7):
         values = segment[:, signal][segment_covered]

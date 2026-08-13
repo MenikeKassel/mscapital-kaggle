@@ -94,6 +94,19 @@ def test_m02t_temporal_features_are_finite_and_invalid_quotes_do_not_explode() -
     assert not np.array_equal(clean, invalid)
 
 
+def test_m02t_partial_coverage_does_not_create_correlation() -> None:
+    market = {
+        "seconds_before_predict": np.array([0.0]),
+        "bid_price_1": np.array([100.0]), "ask_price_1": np.array([101.0]),
+        "bid_price_2": np.array([99.0]), "ask_price_2": np.array([102.0]),
+        "bid_volume_1": np.array([2.0]), "ask_volume_1": np.array([1.0]),
+        "bid_volume_2": np.array([1.0]), "ask_volume_2": np.array([2.0]),
+    }
+    values = temporal_features_for_rows(market)
+    for offset in (2, 3, 4, 5, 6, 7, 8, 9):
+        assert values[offset] == 0.0
+
+
 def test_m02t_file_appends_to_frozen_base_and_preserves_labels(tmp_path) -> None:
     import pyarrow as pa
     import pyarrow.feather as feather

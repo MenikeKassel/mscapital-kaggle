@@ -466,7 +466,7 @@ def _cmd_run_m02t(args: argparse.Namespace) -> None:
 
 def _cmd_summarize_m02t(args: argparse.Namespace) -> None:
     from .models.m02t import summarize_m02t
-    result = summarize_m02t(args.artifact_root)
+    result = summarize_m02t(args.artifact_root, args.m02_base_root)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
@@ -640,6 +640,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=_cmd_run_m02t)
     p = sub.add_parser("summarize-m02t", help="summarize the four-fold M02-T gate")
     p.add_argument("--artifact-root", type=Path, required=True)
+    p.add_argument("--m02-base-root", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.set_defaults(func=_cmd_summarize_m02t)
     p = sub.add_parser("run-alpha", help="combine an RMS baseline with a residual prediction")

@@ -74,11 +74,23 @@ def run_m02t_outer(
     base_path = Path(m02_base_root) / "m02-geometry" / outer / "predictions.npz"
     if not base_path.exists():
         raise FileNotFoundError(f"{outer}: M02-base prediction artifact is required for attribution")
+    base_manifest_path = base_path.parent / "manifest.json"
+    if not base_manifest_path.exists():
+        raise FileNotFoundError(f"{outer}: M02-base manifest is required for attribution")
+    base_manifest = json.loads(base_manifest_path.read_text(encoding="utf-8"))
+    if base_manifest.get("status") != "complete" or base_manifest.get("experiment_id") != f"m02-geometry-{outer.lower()}":
+        raise ValueError(f"{outer}: M02-base manifest identity/status is invalid")
     with np.load(output / "predictions.npz") as temporal_source, np.load(base_path) as base_source:
         temporal = {key: np.asarray(temporal_source[key]) for key in temporal_source.files}
         base = {key: np.asarray(base_source[key]) for key in base_source.files}
     if not np.array_equal(temporal["sample_id"], base["sample_id"]) or not np.array_equal(temporal["month"], base["month"]):
         raise ValueError(f"{outer}: M02-T and M02-base IDs/months are not aligned")
+    if not np.array_equal(temporal["target"], base["target"]):
+        raise ValueError(f"{outer}: M02-T and M02-base targets are not aligned")
+    base_hashes = {
+        "sample_id": array_hash(base["sample_id"]), "month": array_hash(base["month"]),
+        "target": array_hash(base["target"]), "pred": array_hash(base["pred"]),
+    }
     base_score = cosine_uncentered(base["pred"], base["target"])
     temporal_score = cosine_uncentered(temporal["pred"], temporal["target"])
     base_corr = float(np.corrcoef(temporal["pred"], base["pred"])[0, 1])
@@ -87,6 +99,9 @@ def run_m02t_outer(
         "m02_base_score": base_score,
         "delta_vs_m02_base": temporal_score - base_score,
         "m02_base_prediction_corr": base_corr,
+        "m02_base_artifact_hashes": base_hashes,
+        "m02_base_config_hash": base_manifest.get("config_hash"),
+        "m02_base_feature_hash": base_manifest.get("feature_hash"),
     })
     manifest_path = output / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -94,6 +109,9 @@ def run_m02t_outer(
         "m02_base_score": base_score,
         "delta_vs_m02_base": temporal_score - base_score,
         "m02_base_prediction_corr": base_corr,
+        "m02_base_artifact_hashes": base_hashes,
+        "m02_base_config_hash": base_manifest.get("config_hash"),
+        "m02_base_feature_hash": base_manifest.get("feature_hash"),
     })
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     (output / "report.md").write_text("\n".join([
@@ -106,11 +124,38 @@ def run_m02t_outer(
     return diagnostics
 
 
-def summarize_m02t(artifact_root: str | Path) -> dict[str, Any]:
+def summarize_m02t(artifact_root: str | Path, m02_base_root: str | Path) -> dict[str, Any]:
     result = summarize_m02(
         artifact_root, output_subdir="m02-t", split_label="m02-t", method="M02-T temporal Geometry"
     )
     rows = result["rows"]
+    for row in rows:
+        outer = row["outer"]
+        temporal_dir = Path(artifact_root) / "m02-t" / outer
+        base_path = Path(m02_base_root) / "m02-geometry" / outer / "predictions.npz"
+        with np.load(temporal_dir / "predictions.npz") as temporal_source, np.load(base_path) as base_source:
+            temporal = {key: np.asarray(temporal_source[key]) for key in temporal_source.files}
+            base = {key: np.asarray(base_source[key]) for key in base_source.files}
+        if not np.array_equal(temporal["sample_id"], base["sample_id"]) or not np.array_equal(temporal["month"], base["month"]):
+            raise ValueError(f"{outer}: M02-T and M02-base IDs/months are not aligned during summary")
+        if not np.array_equal(temporal["target"], base["target"]):
+            raise ValueError(f"{outer}: M02-T and M02-base targets are not aligned during summary")
+        base_hashes = {
+            "sample_id": array_hash(base["sample_id"]), "month": array_hash(base["month"]),
+            "target": array_hash(base["target"]), "pred": array_hash(base["pred"]),
+        }
+        manifest = json.loads((temporal_dir / "manifest.json").read_text(encoding="utf-8"))
+        if manifest.get("diagnostics", {}).get("m02_base_artifact_hashes") != base_hashes:
+            raise ValueError(f"{outer}: M02-base attribution hashes do not match manifest")
+        base_score = cosine_uncentered(base["pred"], base["target"])
+        final_score = cosine_uncentered(temporal["pred"], temporal["target"])
+        corr = float(np.corrcoef(temporal["pred"], base["pred"])[0, 1])
+        if not np.isclose(base_score, row["m02_base_score"], atol=1e-12, rtol=0.0):
+            raise ValueError(f"{outer}: M02-base score does not replay")
+        if not np.isclose(final_score - base_score, row["delta_vs_m02_base"], atol=1e-12, rtol=0.0):
+            raise ValueError(f"{outer}: M02-base delta does not replay")
+        if not np.isclose(corr, row["m02_base_prediction_corr"], atol=1e-12, rtol=0.0):
+            raise ValueError(f"{outer}: M02-base correlation does not replay")
     result["mean_delta_vs_m02_base"] = float(np.mean([row["delta_vs_m02_base"] for row in rows]))
     result["m02_base_prediction_corr"] = [row["m02_base_prediction_corr"] for row in rows]
     return result
