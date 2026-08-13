@@ -5,7 +5,7 @@ import json
 import numpy as np
 import pytest
 
-from mscapital.artifacts import ExperimentManifest
+from mscapital.artifacts import ExperimentManifest, feature_hash
 from mscapital.cli import build_parser, main
 from mscapital.ensemble import EnsembleCalibrator, NestedBlendFold, evaluate_nested_blend
 from mscapital.features.lob_geometry import (
@@ -14,6 +14,13 @@ from mscapital.features.lob_geometry import (
     build_lob_geometry_file,
     geometry_feature_names,
     lob_geometry_row,
+)
+from mscapital.features.geometry_temporal import (
+    TEMPORAL_FEATURE_COUNT,
+    geometry_temporal_feature_names,
+    temporal_feature_names,
+    temporal_features_for_rows,
+    build_geometry_temporal_file,
 )
 from mscapital.features.ofi import (
     build_m01_features,
@@ -58,6 +65,75 @@ def test_uncentered_metric_is_not_centered_and_handles_zero() -> None:
     assert cosine_uncentered(np.zeros(3), target) == 0.0
     with pytest.raises(ValueError):
         cosine_uncentered([1.0], [1.0, 2.0])
+
+
+def test_m02t_feature_schema_is_fixed() -> None:
+    assert len(temporal_feature_names()) == TEMPORAL_FEATURE_COUNT == 64
+    assert len(geometry_temporal_feature_names()) == 85
+    assert len(set(geometry_temporal_feature_names())) == 85
+
+
+def test_m02t_temporal_features_are_finite_and_invalid_quotes_do_not_explode() -> None:
+    n = 4
+    market = {
+        "seconds_before_predict": np.array([60.0, 30.0, 10.0, 0.0]),
+        "bid_price_1": np.array([99.0, 99.5, 99.8, 100.0]),
+        "ask_price_1": np.array([101.0, 100.5, 100.2, 100.1]),
+        "bid_price_2": np.array([98.0, 99.0, 99.5, 99.8]),
+        "ask_price_2": np.array([102.0, 101.0, 100.5, 100.2]),
+        "bid_volume_1": np.ones(n), "ask_volume_1": np.ones(n),
+        "bid_volume_2": np.ones(n), "ask_volume_2": np.ones(n),
+    }
+    clean = temporal_features_for_rows(market)
+    broken = {key: value.copy() for key, value in market.items()}
+    broken["ask_price_1"][2] = 0.0
+    broken["ask_price_2"][2] = 0.0
+    invalid = temporal_features_for_rows(broken)
+    assert clean.shape == invalid.shape == (64,)
+    assert np.isfinite(invalid).all()
+    assert not np.array_equal(clean, invalid)
+
+
+def test_m02t_partial_coverage_does_not_create_correlation() -> None:
+    market = {
+        "seconds_before_predict": np.array([0.0]),
+        "bid_price_1": np.array([100.0]), "ask_price_1": np.array([101.0]),
+        "bid_price_2": np.array([99.0]), "ask_price_2": np.array([102.0]),
+        "bid_volume_1": np.array([2.0]), "ask_volume_1": np.array([1.0]),
+        "bid_volume_2": np.array([1.0]), "ask_volume_2": np.array([2.0]),
+    }
+    values = temporal_features_for_rows(market)
+    for offset in (2, 3, 4, 5, 6, 7, 8, 9):
+        assert values[offset] == 0.0
+
+
+def test_m02t_file_appends_to_frozen_base_and_preserves_labels(tmp_path) -> None:
+    import pyarrow as pa
+    import pyarrow.feather as feather
+
+    rows = {
+        "sample_id": np.array([0, 0, 1]),
+        "seconds_before_predict": np.array([60.0, 0.0, 0.0]),
+        "bid_price_1": np.array([99.0, 100.0, 100.0]),
+        "ask_price_1": np.array([101.0, 101.0, 101.0]),
+        "bid_price_2": np.array([98.0, 99.0, 99.0]),
+        "ask_price_2": np.array([102.0, 102.0, 102.0]),
+        "bid_volume_1": np.array([1.0, 2.0, 2.0]),
+        "ask_volume_1": np.array([1.0, 2.0, 2.0]),
+        "bid_volume_2": np.array([1.0, 1.0, 1.0]),
+        "ask_volume_2": np.array([1.0, 1.0, 1.0]),
+    }
+    market = tmp_path / "market.feather"
+    labels = tmp_path / "label.feather"
+    base = tmp_path / "base.parquet"
+    temporal = tmp_path / "temporal.parquet"
+    feather.write_feather(pa.table(rows), market)
+    feather.write_feather(pa.table({"sample_id": np.array([0, 1]), "month": np.array([0, 0]), "target": np.array([0.1, 0.2])}), labels)
+    build_lob_geometry_file(market, labels, base)
+    result = build_geometry_temporal_file(base, market, temporal)
+    assert result["rows"] == 2
+    assert result["temporal_feature_count"] == 64
+    assert result["feature_hash"] == feature_hash(geometry_temporal_feature_names())
 
 
 def test_m02_geometry_frame_requires_finite_aligned_matrix() -> None:

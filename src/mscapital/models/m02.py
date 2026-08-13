@@ -104,6 +104,10 @@ def run_m02_outer(
     outer: str,
     *,
     config: M01AConfig = M01AConfig(),
+    method_id: str = "m02-geometry",
+    output_subdir: str = "m02-geometry",
+    split_label: str = "m02-geometry",
+    report_label: str = "M02 Geometry",
 ) -> dict[str, Any]:
     """Run one M02 outer fold; selection sees only historical canonical OOF."""
     started = time.perf_counter()
@@ -133,7 +137,7 @@ def run_m02_outer(
         "lb142_prediction_corr": None,
         "lb142_status": "no_outer_aligned_reference_provided",
     })
-    output = Path(output_root) / "m02-geometry" / outer
+    output = Path(output_root) / output_subdir / outer
     output.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         output / "inner_predictions.npz", sample_id=selection.tune_sample_id,
@@ -145,7 +149,7 @@ def run_m02_outer(
         output / "predictions.npz", sample_id=baseline["sample_id"], month=baseline["month"],
         target=baseline["target"], baseline_pred=baseline["pred"],
         residual_pred=residual_prediction, pred=final,
-        split=np.full(final.size, f"{outer}:m02-geometry"),
+        split=np.full(final.size, f"{outer}:{split_label}"),
     )
     (output / "training_history.json").write_text(json.dumps({
         "outer": outer, "beta": selection.beta, "best_iteration": selection.best_iteration,
@@ -156,7 +160,7 @@ def run_m02_outer(
     config_payload = json.dumps(asdict(config), sort_keys=True, separators=(",", ":")).encode()
     view = outer_residual(canonical, outer)
     manifest = ExperimentManifest(
-        experiment_id=f"m02-geometry-{outer.lower()}", status="complete",
+        experiment_id=f"{method_id}-{outer.lower()}", status="complete",
         config_hash=hashlib.sha256(config_payload).hexdigest(),
         data_fingerprints={
             "canonical_sample_id": array_hash(canonical.sample_id),
@@ -174,7 +178,7 @@ def run_m02_outer(
     )
     manifest.write(output)
     (output / "report.md").write_text("\n".join([
-        f"# M02 Geometry - {outer}", "",
+        f"# {report_label} - {outer}", "",
         f"- score: `{final_score:.9f}`",
         f"- delta vs frozen baseline: `{final_score - baseline_score:+.9f}`",
         f"- beta / alpha: `{selection.beta:.9g}` / `{selection.alpha:.2f}`",
@@ -183,9 +187,15 @@ def run_m02_outer(
     return diagnostics | {"output": str(output)}
 
 
-def summarize_m02(artifact_root: str | Path) -> dict[str, Any]:
+def summarize_m02(
+    artifact_root: str | Path,
+    *,
+    output_subdir: str = "m02-geometry",
+    split_label: str = "m02-geometry",
+    method: str = "M02 Geometry",
+) -> dict[str, Any]:
     """Validate and summarize all four M02 outer artifacts."""
-    root = Path(artifact_root) / "m02-geometry"
+    root = Path(artifact_root) / output_subdir
     rows: list[dict[str, Any]] = []
     for outer in ("PSEUDO", "H2", "T3", "T4"):
         directory = root / outer
@@ -207,7 +217,7 @@ def summarize_m02(artifact_root: str | Path) -> dict[str, Any]:
         expected_months = set(range(NESTED_SPLITS[outer].outer_valid.start, NESTED_SPLITS[outer].outer_valid.end + 1))
         if set(artifact["month"].tolist()) != expected_months:
             raise ValueError(f"{outer}: M02 prediction months are invalid")
-        if not np.array_equal(artifact["split"], np.full(artifact["pred"].size, f"{outer}:m02-geometry")):
+        if not np.array_equal(artifact["split"], np.full(artifact["pred"].size, f"{outer}:{split_label}")):
             raise ValueError(f"{outer}: M02 prediction split labels are invalid")
         baseline_score = cosine_uncentered(artifact["baseline_pred"], artifact["target"])
         final_score = cosine_uncentered(artifact["pred"], artifact["target"])
@@ -238,4 +248,4 @@ def summarize_m02(artifact_root: str | Path) -> dict[str, Any]:
         "drift_ok": bool(drift_ok), "finite_ok": True,
     }
     gate["passed"] = bool(gate["pseudo_delta_at_least_0_0015"] and gate["positive_outers"] >= 3 and gate["worst_delta"] >= -0.0005 and drift_ok)
-    return {"method": "M02 Geometry", "rows": rows, "mean_delta": float(deltas.mean()), "gate": gate}
+    return {"method": method, "rows": rows, "mean_delta": float(deltas.mean()), "gate": gate}
