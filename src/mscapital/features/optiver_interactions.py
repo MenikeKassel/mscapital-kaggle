@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
+import hashlib
+import json
 
 import numpy as np
+
+from ..artifacts import ExperimentManifest, array_hash, feature_hash
 
 
 EPSILON = 1e-12
@@ -172,4 +177,52 @@ def build_optiver_interactions(
         feature_names=optiver_interaction_feature_names(),
     )
     frame.validate()
+    return frame
+
+
+def build_optiver_interactions_file(m02_path: str | Path, m01a_path: str | Path,
+                                    labels_path: str | Path | None, output_path: str | Path) -> dict[str, object]:
+    """Build the fixed 24-column artifact from already-frozen feature files."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from ..models.m02 import load_geometry_frame
+    from ..models.m01a import load_event_flow_frame
+
+    geometry = load_geometry_frame(m02_path)
+    event_flow = load_event_flow_frame(m01a_path)
+    frame = build_optiver_interactions(geometry, event_flow)
+    output = Path(output_path); output.parent.mkdir(parents=True, exist_ok=True)
+    names = optiver_interaction_feature_names()
+    pq.write_table(pa.table({"sample_id": frame.sample_id, "month": frame.month, "target": frame.target,
+                             **{name: frame.values[:, i] for i, name in enumerate(names)}}), output, compression="zstd")
+    diagnostics = {"rows": int(frame.sample_id.size), "feature_names": list(names),
+                   "feature_hash": feature_hash(list(names)),
+                   "artifact_hashes": {"sample_id": array_hash(frame.sample_id), "month": array_hash(frame.month),
+                                       "target": array_hash(frame.target), "values": array_hash(frame.values)},
+                   "builder": {"feature_count": 24, "epsilon": EPSILON, "input_alignment": "exact sample_id/month/target"}}
+    config_hash = hashlib.sha256(json.dumps(diagnostics, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    ExperimentManifest(experiment_id="m04-optiver-interaction-features", status="complete", config_hash=config_hash,
+                       feature_hash=diagnostics["feature_hash"], train_months=(int(frame.month.min()), int(frame.month.max())),
+                       diagnostics=diagnostics).write(output.parent)
+    (output.parent / "report.md").write_text("# M04 Optiver Interaction Family\n\n- features: `24`\n- inputs: frozen M02-base + M01-A Event Flow\n", encoding="utf-8")
+    return diagnostics | {"output": str(output)}
+
+
+def load_optiver_interaction_frame(path: str | Path) -> OptiverInteractionFrame:
+    import pyarrow.parquet as pq
+    path = Path(path); manifest = json.loads((path.parent / "manifest.json").read_text(encoding="utf-8"))
+    names = optiver_interaction_feature_names()
+    if manifest.get("experiment_id") != "m04-optiver-interaction-features" or manifest.get("status") != "complete":
+        raise ValueError("M04 feature manifest identity/status is invalid")
+    table = pq.read_table(path, columns=["sample_id", "month", "target", *names])
+    cols = {name: table[name].to_numpy(zero_copy_only=False) for name in table.column_names}
+    order = np.argsort(cols["sample_id"], kind="mergesort")
+    cols = {name: np.asarray(value)[order] for name, value in cols.items()}
+    frame = OptiverInteractionFrame(cols["sample_id"], cols["month"], cols["target"].astype(np.float64),
+                                    np.column_stack([cols[name] for name in names]).astype(np.float32), names)
+    frame.validate()
+    expected = {"sample_id": array_hash(frame.sample_id), "month": array_hash(frame.month),
+                "target": array_hash(frame.target), "values": array_hash(frame.values)}
+    if manifest.get("feature_hash") != feature_hash(list(names)) or manifest.get("diagnostics", {}).get("artifact_hashes") != expected:
+        raise ValueError("M04 feature manifest hashes are invalid")
     return frame
