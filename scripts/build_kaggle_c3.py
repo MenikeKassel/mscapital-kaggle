@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 OUTERS = ("PSEUDO", "H2", "T3", "T4")
-AVAILABLE_SPLITS = OUTERS + ("R61_70",)
+AVAILABLE_SPLITS = OUTERS + ("R21_30", "R31_40", "R41_50", "R51_60", "R61_70")
 DATASET_SLUG = "msc-clean-table-v2-data"
 
 

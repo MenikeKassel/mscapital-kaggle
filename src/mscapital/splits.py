@@ -65,16 +65,17 @@ NESTED_SPLITS = {
     "T4": NestedSplit("T4", _m(0, 40), _m(41, 50), _m(0, 50), _m(61, 70)),
 }
 
-# This split is not an additional outer stress test.  It exists only to
-# complete the strictly historical m61-70 block needed by the canonical
-# rolling-OOF production-scale estimate.
-CANONICAL_SCALE_SPLITS = {
-    "R61_70": NestedSplit(
-        "R61_70", _m(0, 50), _m(51, 60), _m(0, 60), _m(61, 70)
-    ),
+# These are rolling OOF production splits, not additional outer stress tests.
+# Every validation block is predicted from a strictly earlier refit range.
+CANONICAL_ROLLING_SPLITS = {
+    "R21_30": NestedSplit("R21_30", _m(0, 10), _m(11, 20), _m(0, 20), _m(21, 30)),
+    "R31_40": NestedSplit("R31_40", _m(0, 20), _m(21, 30), _m(0, 30), _m(31, 40)),
+    "R41_50": NestedSplit("R41_50", _m(0, 30), _m(31, 40), _m(0, 40), _m(41, 50)),
+    "R51_60": NestedSplit("R51_60", _m(0, 40), _m(41, 50), _m(0, 50), _m(51, 60)),
+    "R61_70": NestedSplit("R61_70", _m(0, 50), _m(51, 60), _m(0, 60), _m(61, 70)),
 }
 
-TRAINING_SPLITS = {**NESTED_SPLITS, **CANONICAL_SCALE_SPLITS}
+TRAINING_SPLITS = {**NESTED_SPLITS, **CANONICAL_ROLLING_SPLITS}
 
 ROLLING_WINDOWS = (
     ("m21_30", _m(0, 20), _m(21, 30)),
@@ -88,7 +89,7 @@ for _split in OUTER_SPLITS.values():
     _split.validate()
 for _split in NESTED_SPLITS.values():
     _split.validate()
-for _split in CANONICAL_SCALE_SPLITS.values():
+for _split in CANONICAL_ROLLING_SPLITS.values():
     _split.validate()
 
 
