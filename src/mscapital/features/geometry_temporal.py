@@ -124,11 +124,10 @@ def _asof_path(row_values: Mapping[str, np.ndarray]) -> tuple[np.ndarray, np.nda
     grid = np.arange(60.0, -1.0, -1.0)
     path = np.zeros((grid.size, channels.shape[1]), dtype=np.float64)
     covered = np.zeros(grid.size, dtype=bool)
-    for index, asof_seconds in enumerate(grid):
-        position = int(np.searchsorted(seconds, asof_seconds, side="left"))
-        if position < seconds.size:
-            path[index] = channels[position]
-            covered[index] = True
+    positions = np.searchsorted(seconds, grid, side="left")
+    valid_positions = positions < seconds.size
+    path[valid_positions] = channels[positions[valid_positions]]
+    covered[valid_positions] = True
     return path, covered, int(seconds.size)
 
 
