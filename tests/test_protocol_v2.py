@@ -212,14 +212,20 @@ def test_m01a_event_flow_normalizations_and_streaming_match(tmp_path) -> None:
     label_path = tmp_path / "label.feather"
     pl.DataFrame(order).write_ipc(order_path)
     pl.DataFrame(trade).write_ipc(trade_path)
-    pl.DataFrame(
-        {"sample_id": [1, 2, 3], "month": [21, 21, 22], "target": [0.1, -0.2, 0.0]}
-    ).write_ipc(label_path)
+    label_ids = np.arange(71) + 100
+    labels = pl.DataFrame(
+        {
+            "sample_id": np.concatenate(([1, 2, 3], label_ids)),
+            "month": np.concatenate(([21, 21, 22], np.arange(71))),
+            "target": np.concatenate(([0.1, -0.2, 0.0], np.zeros(71))),
+        }
+    )
+    labels.write_ipc(label_path)
     output = tmp_path / "features" / "event_flow.parquet"
     result = build_event_flow_file(order_path, trade_path, label_path, output)
     streamed = pl.read_parquet(output).sort("sample_id")
-    assert result["rows"] == 3
-    assert streamed.select(names).to_numpy() == pytest.approx(values)
+    assert result["rows"] == 74
+    assert streamed.filter(pl.col("sample_id").is_in([1, 2, 3])).select(names).to_numpy() == pytest.approx(values)
     assert json.loads((output.parent / "manifest.json").read_text())["status"] == "complete"
 
 

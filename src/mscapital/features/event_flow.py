@@ -179,13 +179,17 @@ def build_event_flow_file(
     labels = pl.read_ipc(labels_path).select("sample_id", "month", "target")
     if labels["sample_id"].n_unique() != labels.height:
         raise ValueError("labels sample_id must be unique")
+    if labels["target"].null_count() or not np.isfinite(labels["target"].to_numpy()).all():
+        raise ValueError("labels target must be finite and non-missing")
+    if set(labels["month"].unique().to_list()) != set(range(71)):
+        raise ValueError("labels must cover every month from 0 through 70")
+    names = list(event_flow_feature_names())
     frame = (
         labels.join(order, on="sample_id", how="left", validate="1:1")
         .join(transaction, on="sample_id", how="left", validate="1:1")
-        .fill_null(0.0)
+        .with_columns(pl.col(names).fill_null(0.0).cast(pl.Float32))
         .sort("sample_id")
     )
-    names = list(event_flow_feature_names())
     values = frame.select(names).to_numpy()
     if not np.isfinite(values).all():
         raise ValueError("M01-A streaming features must be finite")
