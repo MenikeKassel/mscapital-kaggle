@@ -141,7 +141,8 @@ def main() -> None:
         train_mask = (months >= t0) & (months <= t1)
         model, mean, std = train_sae(X[train_mask], t[train_mask], device)
         latent = encode(model, X, mean, std, device)
-        values = np.hstack([X, latent])
+        X_clean = np.where(np.isnan(X), np.nanmean(X, axis=0, keepdims=True), X)
+        values = np.hstack([X_clean, latent])
         names_all = tuple(names) + tuple(f"sae_latent_{i}" for i in range(LATENT_DIM))
         feat_path = FEATURE_OUT / f"{outer.lower()}_features.parquet"
         save_p3_features(

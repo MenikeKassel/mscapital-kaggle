@@ -90,14 +90,18 @@ def main() -> None:
 
     print("building 6-class intensity features...")
     X, ids, _ = build_intensity_features()
-    pos = np.searchsorted(np.sort(ids), canonical.sample_id)
-    order = np.argsort(ids)
-    X = X[order][pos]
+    # X rows are indexed by sample_id directly (grid[sample_id]); verify coverage then index
+    missing = set(canonical.sample_id.tolist()) - set(ids.tolist())
+    if missing:
+        raise ValueError(f"intensity features missing {len(missing)} canonical ids")
+    X = X[canonical.sample_id]
 
     # M01-A event-rate columns (counts per second at 5/15/30/60 windows)
     rate_names = [c for c in flow.feature_names if "event_count_per_second" in c]
     idx = [flow.feature_names.index(c) for c in rate_names]
-    X_m01a = flow.values[:, idx]
+    forder = np.argsort(flow.sample_id, kind="mergesort")
+    fpos = np.searchsorted(flow.sample_id[forder], canonical.sample_id)
+    X_m01a = flow.values[forder][fpos][:, idx]
     print("M01-A rate features:", rate_names)
 
     # 1) correlation between intensity features and M01-A event rates

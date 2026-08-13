@@ -73,6 +73,7 @@ def build_price_hist(order_path=ORDER, tx_path=TX) -> tuple[np.ndarray, np.ndarr
         np.log(order["price"].to_numpy() + 1e-8),
         np.log(tx["price"].to_numpy() + 1e-8),
     ])
+    all_prices = all_prices[np.isfinite(all_prices)]
     edges = np.quantile(all_prices, np.linspace(0, 1, PRICE_BINS + 1))
     edges[0] = -np.inf
     edges[-1] = np.inf
@@ -81,14 +82,16 @@ def build_price_hist(order_path=ORDER, tx_path=TX) -> tuple[np.ndarray, np.ndarr
     h = np.zeros((n, PRICE_BINS * 3), dtype=np.float32)
     o_px = np.log(order["price"].to_numpy() + 1e-8)
     o_ids = order["sample_id"].to_numpy()
-    o_bin = np.clip(np.digitize(o_px, edges) - 1, 0, PRICE_BINS - 1)
-    o_sign = np.where(order["order_action"].to_numpy() == 0, 1.0, -1.0) * np.where(order["side"].to_numpy() == 0, 1.0, -1.0)
-    o_vol = order["volume"].to_numpy().astype(np.float32) * o_sign
-    np.add.at(h[:, 0:PRICE_BINS], (o_ids, o_bin), o_vol)
+    o_valid = np.isfinite(o_px)
+    o_bin = np.clip(np.digitize(o_px[o_valid], edges) - 1, 0, PRICE_BINS - 1)
+    o_sign = np.where(order["order_action"].to_numpy()[o_valid] == 0, 1.0, -1.0) * np.where(order["side"].to_numpy()[o_valid] == 0, 1.0, -1.0)
+    o_vol = order["volume"].to_numpy().astype(np.float32)[o_valid] * o_sign
+    np.add.at(h[:, 0:PRICE_BINS], (o_ids[o_valid], o_bin), o_vol)
     t_px = np.log(tx["price"].to_numpy() + 1e-8)
     t_ids = tx["sample_id"].to_numpy()
-    t_bin = np.clip(np.digitize(t_px, edges) - 1, 0, PRICE_BINS - 1)
-    t_vol = tx["volume"].to_numpy().astype(np.float32)
-    np.add.at(h[:, PRICE_BINS:2 * PRICE_BINS], (t_ids, t_bin), t_vol)
-    np.add.at(h[:, 2 * PRICE_BINS:3 * PRICE_BINS], (o_ids, o_bin), np.abs(o_vol))
+    t_valid = np.isfinite(t_px)
+    t_bin = np.clip(np.digitize(t_px[t_valid], edges) - 1, 0, PRICE_BINS - 1)
+    t_vol = tx["volume"].to_numpy().astype(np.float32)[t_valid]
+    np.add.at(h[:, PRICE_BINS:2 * PRICE_BINS], (t_ids[t_valid], t_bin), t_vol)
+    np.add.at(h[:, 2 * PRICE_BINS:3 * PRICE_BINS], (o_ids[o_valid], o_bin), np.abs(o_vol))
     return h, edges

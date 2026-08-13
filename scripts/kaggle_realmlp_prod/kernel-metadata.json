@@ -1,0 +1,13 @@
+{
+  "id": "kasselmenike/msc-realmlp-prod",
+  "title": "MSC RealMLP Prod",
+  "code_file": "kernel_code.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "competition_sources": ["ms-capital-real-financial-market-forecasting"],
+  "dataset_sources": ["kasselmenike/msc-f0726-pq", "kasselmenike/msc-src-pkg"],
+  "model_sources": []
+}
