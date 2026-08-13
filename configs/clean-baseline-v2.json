@@ -1,0 +1,37 @@
+{
+  "protocol": "protocol-v2",
+  "status": "frozen",
+  "components": {
+    "realmlp": "c2-realmlp-epochs30",
+    "table": "clean-table-v2"
+  },
+  "calibration": {
+    "methods": ["raw", "std", "rms"],
+    "weight_start": 0.0,
+    "weight_end": 1.0,
+    "weight_step": 0.01,
+    "production_method": "rms",
+    "production_table_weight": 0.37,
+    "production_scale_source": "canonical_rolling_oof_months_51_70",
+    "production_scale_realmlp": 0.014812425837302948,
+    "production_scale_table": 0.00035057231611417754,
+    "production_formula": "0.63 * realmlp / scale_realmlp + 0.37 * table / scale_table",
+    "canonical_oof_score": 0.14917332007287812,
+    "canonical_oof_rows": 353246,
+    "canonical_result_hash": "43569a5de6838d7bb9e0d7430ebe6f94011a52a9283cd28196780c71da18f79c"
+  },
+  "gate": {
+    "strict_nested": {
+      "applies_to": "fold_specific_nested_calibrations",
+      "all_outers_non_degrading": true,
+      "minimum_mean_delta": 0.0005,
+      "observed_mean_delta": 0.0050256169772687
+    },
+    "production_rule_stress": {
+      "applies_to": "correlated_post_selection_production_rule_stress",
+      "all_outers_non_degrading": true,
+      "minimum_mean_delta": 0.0005,
+      "observed_mean_delta": 0.004961153780578924
+    }
+  }
+}

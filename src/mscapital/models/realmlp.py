@@ -27,7 +27,7 @@ import numpy as np
 from ..artifacts import ExperimentManifest, feature_hash, git_sha, save_predictions
 from ..diagnostics import prediction_diagnostics
 from ..metrics import cosine_uncentered
-from ..splits import NESTED_SPLITS, NestedSplit
+from ..splits import NESTED_SPLITS, TRAINING_SPLITS, NestedSplit
 
 
 def _stable_file_fingerprint(path: str | Path, sample_bytes: int = 1 << 20) -> str:
@@ -958,9 +958,9 @@ def run_inner_diagnostic(
 
 
 def run_outer(frame: PreparedFrame, outer_name: str, cfg: RealMLPConfig, output_dir: str | Path, *, experiment_id: str = "clean-realmlp-v2a", data_paths: Sequence[str | Path] = (), legacy_pseudo_path: str | Path | None = None) -> dict[str, Any]:
-    if outer_name not in NESTED_SPLITS:
+    if outer_name not in TRAINING_SPLITS:
         raise KeyError(f"unknown outer split {outer_name}")
-    split: NestedSplit = NESTED_SPLITS[outer_name]
+    split: NestedSplit = TRAINING_SPLITS[outer_name]
     output = Path(output_dir) / outer_name
     output.mkdir(parents=True, exist_ok=True)
     source_git_sha = os.environ.get("MSCAP_GIT_SHA") or git_sha()

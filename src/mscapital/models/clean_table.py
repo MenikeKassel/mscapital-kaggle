@@ -25,7 +25,7 @@ import numpy as np
 from ..artifacts import ExperimentManifest, feature_hash, git_sha, save_predictions
 from ..diagnostics import prediction_diagnostics
 from ..metrics import cosine_uncentered
-from ..splits import NESTED_SPLITS
+from ..splits import NESTED_SPLITS, TRAINING_SPLITS
 
 
 R2_REPLACEMENTS: dict[str, tuple[str, str, float]] = {
@@ -399,11 +399,11 @@ def run_outer(
     data_paths: tuple[str | Path, ...] = (),
     legacy_pseudo_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    if outer_name not in NESTED_SPLITS:
+    if outer_name not in TRAINING_SPLITS:
         raise KeyError(f"unknown outer split: {outer_name}")
     started = time.time()
     source_git_sha = os.environ.get("MSCAP_GIT_SHA") or git_sha()
-    split = NESTED_SPLITS[outer_name]
+    split = TRAINING_SPLITS[outer_name]
     masks = {
         "inner_train": split.inner_train.contains(frame.month),
         "inner_tune": split.inner_tune.contains(frame.month),

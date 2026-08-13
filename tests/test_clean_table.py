@@ -16,7 +16,13 @@ from mscapital.models.clean_table import (
     apply_r2,
     run_outer,
 )
-from scripts.build_kaggle_c3 import _kernel_code, _package_payload, stage_dataset
+from scripts.build_kaggle_c1 import _kernel_slug as realmlp_kernel_slug
+from scripts.build_kaggle_c3 import (
+    _kernel_code,
+    _kernel_slug as table_kernel_slug,
+    _package_payload,
+    stage_dataset,
+)
 
 
 def test_r2_replaces_exactly_eight_directional_features():
@@ -129,3 +135,12 @@ def test_private_dataset_does_not_claim_cc0(tmp_path: Path):
     metadata = json.loads((output / "dataset-metadata.json").read_text())
     assert metadata["licenses"] == [{"name": "other"}]
     assert metadata["isPrivate"] is True
+
+
+def test_canonical_split_kernel_slugs_match_kaggle_normalization():
+    assert realmlp_kernel_slug("mscapital-c4-scale-realmlp", "R61_70") == (
+        "mscapital-c4-scale-realmlp-r61-70"
+    )
+    assert table_kernel_slug("mscapital-c4-scale-table", "R61_70") == (
+        "mscapital-c4-scale-table-r61-70"
+    )
