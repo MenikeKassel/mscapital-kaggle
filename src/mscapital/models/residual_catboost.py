@@ -3,9 +3,41 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import sys
+import types
 from typing import Any
 
 import numpy as np
+
+
+def _load_catboost_regressor() -> Any:
+    """Load CatBoost even when an optional Polars binary is CPU-incompatible.
+
+    CatBoost only needs Polars type markers for the numpy training path used by
+    M01-A.  Some Windows environments ship a Polars wheel whose startup CPU
+    probe raises before CatBoost can import; a minimal marker module preserves
+    CatBoost's normal numpy behavior without changing model parameters.
+    """
+    try:
+        import polars  # noqa: F401
+    except Exception as exc:  # pragma: no cover - environment dependent
+        error_text = str(exc).lower()
+        if not any(token in error_text for token in ("polars", "cpu", "feature flag", "sse")):
+            raise
+        marker = types.ModuleType("polars")
+        marker.DataFrame = type("DataFrame", (), {})
+        marker.Series = type("Series", (), {})
+        marker.Object = object
+        marker.__version__ = "0.0.0"
+        sys.modules["polars"] = marker
+    try:
+        from catboost import CatBoostRegressor
+    except Exception as exc:  # pragma: no cover - environment dependent
+        raise RuntimeError(
+            "CatBoost is unavailable or incompatible in this environment; "
+            "install mscapital[models] before running M01 training."
+        ) from exc
+    return CatBoostRegressor
 
 
 @dataclass
@@ -21,13 +53,7 @@ class CatBoostResidualRegressor:
     model: Any = None
 
     def fit(self, X: np.ndarray, y: np.ndarray, *, eval_set: tuple[np.ndarray, np.ndarray] | None = None) -> "CatBoostResidualRegressor":
-        try:
-            from catboost import CatBoostRegressor
-        except Exception as exc:  # pragma: no cover - environment dependent
-            raise RuntimeError(
-                "CatBoost is unavailable or incompatible in this environment; "
-                "install mscapital[models] before running M01 training."
-            ) from exc
+        CatBoostRegressor = _load_catboost_regressor()
         kwargs: dict[str, Any] = dict(
             iterations=self.max_iterations,
             learning_rate=self.learning_rate,

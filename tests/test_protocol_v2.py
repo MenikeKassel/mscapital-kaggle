@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from mscapital.artifacts import ExperimentManifest
-from mscapital.cli import main
+from mscapital.cli import build_parser, main
 from mscapital.ensemble import EnsembleCalibrator, NestedBlendFold, evaluate_nested_blend
 from mscapital.features.lob_geometry import lob_geometry_row
 from mscapital.features.ofi import (
@@ -318,6 +318,20 @@ def test_m01a_selection_has_no_outer_target_input() -> None:
     )
     assert created[0] == (20, 200)
     assert created[1] == (4, 0)
+
+
+def test_run_m01a_cli_registers_frozen_config_default() -> None:
+    args = build_parser().parse_args(
+        [
+            "run-m01a",
+            "--canonical-oof", "canonical.npz",
+            "--features", "event-flow.parquet",
+            "--baseline-root", "baseline",
+            "--output-root", "output",
+            "--outer", "PSEUDO",
+        ]
+    )
+    assert args.config.as_posix() == "configs/m01-a.json"
 
 
 def test_residual_catboost_refit_does_not_enable_zero_wait_detector(monkeypatch) -> None:

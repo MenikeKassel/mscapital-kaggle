@@ -545,6 +545,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--features", type=Path, required=True)
     p.add_argument("--baseline-root", type=Path, required=True)
     p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument("--config", type=Path, default=Path("configs/m01-a.json"))
     p.add_argument("--outer", choices=("PSEUDO", "H2", "T3", "T4", "ALL"), required=True)
     p.set_defaults(func=_cmd_run_m01a)
     p = sub.add_parser("summarize-m01a", help="apply the four-fold M01-A candidate gate")

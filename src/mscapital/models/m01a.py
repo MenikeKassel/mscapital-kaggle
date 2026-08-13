@@ -95,10 +95,11 @@ ModelFactory = Callable[[int, int], Any]
 
 
 def load_event_flow_frame(path: str | Path) -> EventFlowFrame:
+    frame = None
     try:
         import polars as pl
-    except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("polars is required to load M01-A features") from exc
+    except Exception:  # pragma: no cover - optional binary/runtime dependency
+        pl = None
     path = Path(path)
     manifest_path = path.parent / "manifest.json"
     if not manifest_path.exists():
@@ -106,18 +107,34 @@ def load_event_flow_frame(path: str | Path) -> EventFlowFrame:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("experiment_id") != "m01-a-event-flow-features" or manifest.get("status") != "complete":
         raise ValueError("M01-A Event Flow manifest identity/status is invalid")
-    frame = pl.read_parquet(path)
     names = event_flow_feature_names()
-    required = {"sample_id", "month", "target", *names}
-    missing = required - set(frame.columns)
-    if missing:
-        raise ValueError(f"Event Flow artifact is missing columns: {sorted(missing)}")
-    frame = frame.sort("sample_id")
-    raw_target = frame["target"].to_numpy()
+    required = ("sample_id", "month", "target", *names)
+    if pl is not None:
+        frame = pl.read_parquet(path)
+        missing = set(required) - set(frame.columns)
+        if missing:
+            raise ValueError(f"Event Flow artifact is missing columns: {sorted(missing)}")
+        frame = frame.sort("sample_id")
+        columns = {name: frame[name].to_numpy() for name in required}
+    else:
+        try:
+            import pyarrow.parquet as pq
+        except ImportError as exc:  # pragma: no cover - environment dependent
+            raise RuntimeError("M01-A requires polars or pyarrow to load Event Flow features") from exc
+        table = pq.read_table(path, columns=list(required))
+        missing = set(required) - set(table.column_names)
+        if missing:
+            raise ValueError(f"Event Flow artifact is missing columns: {sorted(missing)}")
+        columns = {
+            name: table[name].to_numpy(zero_copy_only=False) for name in required
+        }
+        order = np.argsort(columns["sample_id"], kind="mergesort")
+        columns = {name: value[order] for name, value in columns.items()}
+    raw_target = columns["target"]
     result = EventFlowFrame(
-        frame["sample_id"].to_numpy(), frame["month"].to_numpy(),
+        columns["sample_id"], columns["month"],
         raw_target.astype(np.float64),
-        frame.select(names).to_numpy().astype(np.float32), tuple(names),
+        np.column_stack([columns[name] for name in names]).astype(np.float32), tuple(names),
     )
     result.validate()
     if manifest.get("feature_hash") != feature_hash(list(names)):
