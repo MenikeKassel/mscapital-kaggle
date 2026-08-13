@@ -379,6 +379,17 @@ def load_clean_baseline_oof_block(
         raise ValueError(f"{split_name}: diagnostics split does not match registry")
     if not manifest.get("data_fingerprints"):
         raise ValueError(f"{split_name}: block data fingerprints are required")
+    expected_fingerprints = {
+        component: hashlib.sha256(
+            json.dumps(
+                diagnostics["source_manifests"][component]["data_fingerprints"],
+                sort_keys=True, separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        for component in ("realmlp", "table")
+    }
+    if manifest["data_fingerprints"] != expected_fingerprints:
+        raise ValueError(f"{split_name}: block data fingerprints do not match sources")
     if not prediction_path.exists():
         raise FileNotFoundError(f"{split_name}: predictions.npz is required")
     with np.load(prediction_path) as source:
@@ -409,6 +420,125 @@ def load_clean_baseline_oof_block(
         if artifact_hashes.get(key) != array_hash(value):
             raise ValueError(f"{split_name}: {key} hash does not match manifest")
     return block
+
+
+def write_canonical_oof_artifact(
+    block_locations: dict[str, str | Path], output_path: str | Path
+) -> dict[str, Any]:
+    """Verify and merge the five formal rolling blocks with a signed manifest."""
+
+    if set(block_locations) != set(CANONICAL_ROLLING_SPLITS):
+        raise ValueError("canonical OOF requires exactly the five registered block names")
+    blocks = {
+        name: load_clean_baseline_oof_block(block_locations[name], name)
+        for name in CANONICAL_ROLLING_SPLITS
+    }
+    canonical = build_canonical_oof(blocks.values())
+    output = Path(output_path)
+    canonical.save(output)
+    artifact_hashes = {
+        key: array_hash(getattr(canonical, key))
+        for key in ("sample_id", "month", "target", "baseline_oof", "source_train_end")
+    }
+    source_manifests: dict[str, dict[str, Any]] = {}
+    data_fingerprints: dict[str, str] = {}
+    for name, location in block_locations.items():
+        location = Path(location)
+        directory = location if location.is_dir() else location.parent
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+        source_manifests[name] = {
+            key: manifest.get(key)
+            for key in (
+                "experiment_id", "git_sha", "config_hash", "data_fingerprints",
+                "train_months", "valid_months",
+            )
+        }
+        data_fingerprints[name] = str(manifest["config_hash"])
+    diagnostics = {
+        "artifact_role": "canonical_residual_oof",
+        "rows": int(canonical.sample_id.size),
+        "months": [21, 70],
+        "blocks": {
+            name: {
+                "rows": int(block.month.size),
+                "months": list(CANONICAL_ROLLING_SPLITS[name].outer_valid.as_tuple()),
+                "source_train_end": block.source_train_end,
+            }
+            for name, block in blocks.items()
+        },
+        "artifact_hashes": artifact_hashes,
+        "source_manifests": source_manifests,
+    }
+    result_hash = hashlib.sha256(
+        json.dumps(diagnostics, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    ExperimentManifest(
+        experiment_id="canonical-clean-baseline-oof",
+        status="complete",
+        config_hash=result_hash,
+        data_fingerprints=data_fingerprints,
+        valid_months=(21, 70),
+        diagnostics=diagnostics,
+    ).write(output.parent)
+    (output.parent / "report.md").write_text(
+        "\n".join(
+            [
+                "# Canonical Clean Baseline rolling OOF", "",
+                f"- rows: `{canonical.sample_id.size}`",
+                "- months: `21-70`",
+                "- blocks: `R21_30 / R31_40 / R41_50 / R51_60 / R61_70`",
+                "- every row satisfies: `source_train_end < month`", "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return diagnostics | {"output": str(output), "result_hash": result_hash}
+
+
+def load_canonical_oof_artifact(path: str | Path) -> CanonicalOOF:
+    """Load a canonical OOF artifact only after replaying its manifest checks."""
+
+    path = Path(path)
+    manifest_path = path.parent / "manifest.json"
+    if not manifest_path.exists():
+        raise FileNotFoundError("canonical OOF manifest.json is required")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    expected = {
+        "experiment_id": "canonical-clean-baseline-oof",
+        "status": "complete",
+        "valid_months": [21, 70],
+    }
+    for key, value in expected.items():
+        if manifest.get(key) != value:
+            raise ValueError(f"canonical OOF manifest {key} is invalid")
+    diagnostics = manifest.get("diagnostics")
+    if not isinstance(diagnostics, dict) or diagnostics.get("artifact_role") != "canonical_residual_oof":
+        raise ValueError("canonical OOF diagnostics are invalid")
+    result_hash = hashlib.sha256(
+        json.dumps(diagnostics, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    if manifest.get("config_hash") != result_hash:
+        raise ValueError("canonical OOF manifest result hash is invalid")
+    if manifest.get("data_fingerprints") != {
+        name: str(diagnostics["source_manifests"][name]["config_hash"])
+        for name in CANONICAL_ROLLING_SPLITS
+    }:
+        raise ValueError("canonical OOF source fingerprints are incomplete")
+    with np.load(path) as source:
+        required = {"sample_id", "month", "target", "baseline_oof", "source_train_end"}
+        if set(source.files) != required:
+            raise ValueError("canonical OOF NPZ schema is invalid")
+        arrays = {key: np.asarray(source[key]) for key in required}
+    for key, value in arrays.items():
+        if diagnostics.get("artifact_hashes", {}).get(key) != array_hash(value):
+            raise ValueError(f"canonical OOF {key} hash does not match manifest")
+    canonical = CanonicalOOF(**arrays)
+    canonical.validate()
+    if canonical.sample_id.size != diagnostics.get("rows"):
+        raise ValueError("canonical OOF row count does not match manifest")
+    if set(np.asarray(canonical.month, dtype=int)) != set(range(21, 71)):
+        raise ValueError("canonical OOF does not cover months 21-70")
+    return canonical
 
 
 def rolling_window_spec() -> tuple[tuple[str, tuple[int, int], tuple[int, int]], ...]:

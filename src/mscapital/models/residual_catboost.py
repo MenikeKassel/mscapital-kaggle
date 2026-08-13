@@ -42,8 +42,9 @@ class CatBoostResidualRegressor:
         try:
             kwargs["subsample"] = self.subsample
             kwargs["colsample_bylevel"] = self.colsample_bylevel
-            kwargs["od_type"] = "Iter"
-            kwargs["od_wait"] = self.early_stopping_rounds
+            if self.early_stopping_rounds > 0:
+                kwargs["od_type"] = "Iter"
+                kwargs["od_wait"] = self.early_stopping_rounds
             self.model = CatBoostRegressor(**kwargs)
         except TypeError:
             # Older CatBoost builds do not expose every regularization alias.

@@ -16,6 +16,7 @@ from mscapital.features.ofi import (
     signed_trade_flow,
 )
 from mscapital.features.ofi import select_m01_stage
+from mscapital.features.event_flow import build_event_flow_arrays, build_event_flow_file
 from mscapital.metrics import cosine_centered, cosine_uncentered
 from mscapital.preprocessing import (
     FoldSafeCategoricalEncoder,
@@ -25,12 +26,22 @@ from mscapital.preprocessing import (
 from mscapital.clean_baseline import REALMLP_CONFIG_HASH, TABLE_CONFIG_HASH
 from mscapital.residual import (
     OOFBlock,
+    ROLLING_EXPERIMENT_IDS,
     build_canonical_oof,
     build_clean_baseline_oof_block,
     load_clean_baseline_oof_block,
+    load_canonical_oof_artifact,
     outer_residual,
+    write_canonical_oof_artifact,
 )
 from mscapital.splits import CANONICAL_ROLLING_SPLITS, NESTED_SPLITS, ROLLING_WINDOWS
+from mscapital.models.m01a import (
+    EventFlowFrame,
+    M01AConfig,
+    fit_m01a_selection,
+    select_alpha,
+)
+from mscapital.models.residual_catboost import CatBoostResidualRegressor
 
 
 def test_uncentered_metric_is_not_centered_and_handles_zero() -> None:
@@ -174,6 +185,140 @@ def test_m01_stages_are_cumulative() -> None:
     assert f_names == names
 
 
+def test_m01a_event_flow_normalizations_and_streaming_match(tmp_path) -> None:
+    pl = pytest.importorskip("polars")
+    order = {
+        "sample_id": np.array([1, 1, 1, 2]),
+        "seconds_before_predict": np.array([1.0, 5.0, 8.0, -1.0]),
+        "volume": np.array([10, 5, 100, 7]),
+        "side": np.array([0, 1, 0, 0]),
+        "order_action": np.array([0, 0, 0, 0]),
+    }
+    trade = {
+        "sample_id": np.array([1, 1, 2]),
+        "seconds_before_predict": np.array([2.0, 6.0, 3.0]),
+        "volume": np.array([4, 2, 9]),
+        "side": np.array([0, 1, 1]),
+    }
+    ids, names, values = build_event_flow_arrays(order, trade, sample_ids=np.array([1, 2, 3]))
+    assert ids.tolist() == [1, 2, 3]
+    assert values[0, names.index("order_signed_volume_per_second_5")] == pytest.approx(1.0)
+    assert values[0, names.index("order_signed_volume_per_event_5")] == pytest.approx(2.5)
+    assert values[0, names.index("order_event_count_per_second_5")] == pytest.approx(0.4)
+    assert values[1, names.index("order_event_count_per_second_5")] == 0.0
+
+    order_path = tmp_path / "order.feather"
+    trade_path = tmp_path / "transaction.feather"
+    label_path = tmp_path / "label.feather"
+    pl.DataFrame(order).write_ipc(order_path)
+    pl.DataFrame(trade).write_ipc(trade_path)
+    pl.DataFrame(
+        {"sample_id": [1, 2, 3], "month": [21, 21, 22], "target": [0.1, -0.2, 0.0]}
+    ).write_ipc(label_path)
+    output = tmp_path / "features" / "event_flow.parquet"
+    result = build_event_flow_file(order_path, trade_path, label_path, output)
+    streamed = pl.read_parquet(output).sort("sample_id")
+    assert result["rows"] == 3
+    assert streamed.select(names).to_numpy() == pytest.approx(values)
+    assert json.loads((output.parent / "manifest.json").read_text())["status"] == "complete"
+
+
+def test_m01a_alpha_grid_uses_uncentered_cosine_and_first_tie() -> None:
+    result = select_alpha(
+        baseline=np.array([1.0, 0.0]),
+        residual_prediction=np.array([0.0, 1.0]),
+        target=np.array([1.0, 0.05]),
+    )
+    assert result["alpha"] == pytest.approx(0.05)
+    tied = select_alpha(
+        baseline=np.array([1.0, 2.0]),
+        residual_prediction=np.zeros(2),
+        target=np.array([1.0, 2.0]),
+    )
+    assert tied["alpha"] == 0.0
+
+
+class _FakeResidualModel:
+    def __init__(self, iterations, _early_stopping):
+        self.iterations = iterations
+        self.best_iteration = 3
+        self.offset = 0.0
+
+    def fit(self, x, y, *, eval_set=None):
+        self.offset = float(np.mean(y))
+        return self
+
+    def predict(self, x):
+        return np.asarray(x[:, 0], dtype=float) * 0.1 + self.offset
+
+
+def test_m01a_selection_has_no_outer_target_input() -> None:
+    months = np.arange(21, 51)
+    canonical = build_canonical_oof(
+        [
+            OOFBlock("m21_30", np.arange(21, 31), np.arange(21, 31), np.arange(21, 31) / 100, np.ones(10), 20),
+            OOFBlock("m31_40", np.arange(31, 41), np.arange(31, 41), np.arange(31, 41) / 100, np.ones(10), 30),
+            OOFBlock("m41_50", np.arange(41, 51), np.arange(41, 51), np.arange(41, 51) / 100, np.ones(10), 40),
+        ],
+        require_complete=False,
+    )
+    names = tuple(build_event_flow_arrays(
+        {
+            "sample_id": [21], "seconds_before_predict": [1.0], "volume": [1],
+            "side": [0], "order_action": [0],
+        },
+        {
+            "sample_id": [21], "seconds_before_predict": [1.0], "volume": [1], "side": [0],
+        },
+    )[1])
+    features = EventFlowFrame(
+        sample_id=months, month=months, target=months / 100,
+        values=np.tile(np.linspace(0.0, 1.0, len(names)), (months.size, 1)).astype(np.float32),
+        feature_names=names,
+    )
+    created = []
+
+    def factory(iterations, early_stopping):
+        created.append((iterations, early_stopping))
+        return _FakeResidualModel(iterations, early_stopping)
+
+    first = fit_m01a_selection(
+        canonical, features, "T4", config=M01AConfig(max_iterations=20), model_factory=factory
+    )
+    # No outer-valid target is accepted by the selection API; changing an unrelated
+    # future vector cannot alter beta, best iteration or alpha.
+    future_target = np.full(10, 999.0)
+    future_target[:] = -999.0
+    second = fit_m01a_selection(
+        canonical, features, "T4", config=M01AConfig(max_iterations=20), model_factory=factory
+    )
+    assert (first.beta, first.best_iteration, first.alpha) == (
+        second.beta, second.best_iteration, second.alpha
+    )
+    assert created[0] == (20, 200)
+    assert created[1] == (4, 0)
+
+
+def test_residual_catboost_refit_does_not_enable_zero_wait_detector(monkeypatch) -> None:
+    captured = {}
+
+    class FakeCatBoost:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def fit(self, *_args, **_kwargs):
+            return self
+
+    import types
+    import sys
+
+    monkeypatch.setitem(sys.modules, "catboost", types.SimpleNamespace(CatBoostRegressor=FakeCatBoost))
+    model = CatBoostResidualRegressor(max_iterations=4, early_stopping_rounds=0)
+    model.fit(np.zeros((2, 1)), np.zeros(2), eval_set=None)
+    assert "od_wait" not in captured
+    assert "od_type" not in captured
+
+
 def test_lob_geometry_excludes_l1_relative_price_and_is_invariant() -> None:
     row = lob_geometry_row(99, 10, 101, 20, 98, 5, 102, 15)
     assert "lob_bid1_rel_mid_spread" not in row
@@ -214,15 +359,15 @@ def _write_component_dir(
     directory.mkdir(parents=True)
     np.savez(
         directory / "inner_predictions.npz",
-        sample_id=np.arange(inner_month.size), month=inner_month,
+        sample_id=np.arange(inner_month.size) + split.inner_tune.start * 1000, month=inner_month,
         target=inner_target, pred=inner_target * factor,
     )
     np.savez(
         directory / "predictions.npz",
-        sample_id=np.arange(outer_month.size) + 100, month=outer_month,
+        sample_id=np.arange(outer_month.size) + split.outer_valid.start * 1000, month=outer_month,
         target=outer_target, pred=outer_target * factor,
     )
-    experiment = f"canonical-{component}-{split_name.lower()}"
+    experiment = ROLLING_EXPERIMENT_IDS[split_name][0 if component == "realmlp" else 1]
     config_hash = REALMLP_CONFIG_HASH if component == "realmlp" else TABLE_CONFIG_HASH
     (directory / "manifest.json").write_text(
         json.dumps(
@@ -323,6 +468,31 @@ def test_formal_oof_block_loader_rejects_tampering(tmp_path) -> None:
     np.savez(directory / "predictions.npz", **artifact)
     with pytest.raises(ValueError, match="hash"):
         load_clean_baseline_oof_block(directory, "R21_30")
+
+
+def test_canonical_oof_artifact_requires_five_formal_manifests(tmp_path) -> None:
+    locations = {}
+    for split_name in CANONICAL_ROLLING_SPLITS:
+        realmlp = tmp_path / split_name / "realmlp"
+        table = tmp_path / split_name / "table"
+        _write_component_dir(realmlp, component="realmlp", split_name=split_name)
+        _write_component_dir(table, component="table", split_name=split_name)
+        block_root = tmp_path / "blocks"
+        build_clean_baseline_oof_block(realmlp, table, split_name, block_root)
+        locations[split_name] = block_root / split_name
+    output = tmp_path / "canonical" / "canonical_residual_oof.npz"
+    result = write_canonical_oof_artifact(locations, output)
+    canonical = load_canonical_oof_artifact(output)
+    assert result["months"] == [21, 70]
+    assert canonical.sample_id.size == 50
+    manifest = json.loads((output.parent / "manifest.json").read_text())
+    assert set(manifest["data_fingerprints"]) == set(CANONICAL_ROLLING_SPLITS)
+    tampered = dict(np.load(output))
+    tampered["source_train_end"] = tampered["source_train_end"].copy()
+    tampered["source_train_end"][0] = 99
+    np.savez(output, **tampered)
+    with pytest.raises(ValueError, match="hash"):
+        load_canonical_oof_artifact(output)
 
 
 def test_ensemble_calibrator_reuses_inner_scales() -> None:

@@ -8,6 +8,7 @@ from .ofi import (
     signed_order_flow,
     signed_trade_flow,
 )
+from .event_flow import build_event_flow_arrays, build_event_flow_file, event_flow_feature_names
 
 __all__ = [
     "build_lob_geometry",
@@ -17,4 +18,7 @@ __all__ = [
     "quote_ofi",
     "signed_order_flow",
     "signed_trade_flow",
+    "build_event_flow_arrays",
+    "build_event_flow_file",
+    "event_flow_feature_names",
 ]

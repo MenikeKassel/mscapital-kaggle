@@ -1,0 +1,10 @@
+{
+  "max_iterations": 3000,
+  "early_stopping_rounds": 200,
+  "random_seed": 2026,
+  "learning_rate": 0.02,
+  "depth": 6,
+  "l2_leaf_reg": 5.0,
+  "subsample": 0.8,
+  "colsample_bylevel": 0.8
+}
