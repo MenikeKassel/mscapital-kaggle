@@ -108,6 +108,7 @@ def run_m02_outer(
     output_subdir: str = "m02-geometry",
     split_label: str = "m02-geometry",
     report_label: str = "M02 Geometry",
+    include_reference_diagnostics: bool = True,
 ) -> dict[str, Any]:
     """Run one M02 outer fold; selection sees only historical canonical OOF."""
     started = time.perf_counter()
@@ -134,9 +135,12 @@ def run_m02_outer(
         "baseline_score": baseline_score, "final_score": final_score,
         "delta_vs_baseline": final_score - baseline_score,
         "drift": drift_report(selection.tune_prediction, final), "rows": int(final.size),
-        "lb142_prediction_corr": None,
-        "lb142_status": "no_outer_aligned_reference_provided",
     })
+    if include_reference_diagnostics:
+        diagnostics.update({
+            "lb142_prediction_corr": None,
+            "lb142_status": "no_outer_aligned_reference_provided",
+        })
     output = Path(output_root) / output_subdir / outer
     output.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
