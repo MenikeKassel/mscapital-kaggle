@@ -32,6 +32,14 @@ ROLLING_EXPERIMENT_IDS = {
     "R51_60": ("c2-realmlp-epochs30-t3", "clean-table-v2-t3"),
     "R61_70": ("c4-scale-realmlp-r61_70", "c4-scale-table-r61_70"),
 }
+CANONICAL_BLOCK_ROWS = {
+    "R21_30": 177647,
+    "R31_40": 177098,
+    "R41_50": 177945,
+    "R51_60": 177542,
+    "R61_70": 175704,
+}
+CANONICAL_TOTAL_ROWS = sum(CANONICAL_BLOCK_ROWS.values())
 
 
 @dataclass(frozen=True)
@@ -423,7 +431,8 @@ def load_clean_baseline_oof_block(
 
 
 def write_canonical_oof_artifact(
-    block_locations: dict[str, str | Path], output_path: str | Path
+    block_locations: dict[str, str | Path], output_path: str | Path, *,
+    strict_counts: bool = False,
 ) -> dict[str, Any]:
     """Verify and merge the five formal rolling blocks with a signed manifest."""
 
@@ -434,6 +443,19 @@ def write_canonical_oof_artifact(
         for name in CANONICAL_ROLLING_SPLITS
     }
     canonical = build_canonical_oof(blocks.values())
+    if strict_counts:
+        for name, block in blocks.items():
+            expected_rows = CANONICAL_BLOCK_ROWS[name]
+            if block.sample_id.size != expected_rows:
+                raise ValueError(
+                    f"{name}: expected {expected_rows} competition rows, "
+                    f"got {block.sample_id.size}"
+                )
+        if canonical.sample_id.size != CANONICAL_TOTAL_ROWS:
+            raise ValueError(
+                f"canonical OOF expected {CANONICAL_TOTAL_ROWS} competition rows, "
+                f"got {canonical.sample_id.size}"
+            )
     output = Path(output_path)
     canonical.save(output)
     artifact_hashes = {
@@ -456,6 +478,7 @@ def write_canonical_oof_artifact(
         data_fingerprints[name] = str(manifest["config_hash"])
     diagnostics = {
         "artifact_role": "canonical_residual_oof",
+        "strict_counts": bool(strict_counts),
         "rows": int(canonical.sample_id.size),
         "months": [21, 70],
         "blocks": {
@@ -514,6 +537,12 @@ def load_canonical_oof_artifact(path: str | Path) -> CanonicalOOF:
     diagnostics = manifest.get("diagnostics")
     if not isinstance(diagnostics, dict) or diagnostics.get("artifact_role") != "canonical_residual_oof":
         raise ValueError("canonical OOF diagnostics are invalid")
+    if diagnostics.get("strict_counts"):
+        if diagnostics.get("rows") != CANONICAL_TOTAL_ROWS:
+            raise ValueError("strict canonical OOF row count is invalid")
+        for name, expected_rows in CANONICAL_BLOCK_ROWS.items():
+            if diagnostics.get("blocks", {}).get(name, {}).get("rows") != expected_rows:
+                raise ValueError(f"strict canonical OOF {name} row count is invalid")
     result_hash = hashlib.sha256(
         json.dumps(diagnostics, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()

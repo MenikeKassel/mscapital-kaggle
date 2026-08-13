@@ -282,7 +282,7 @@ def _cmd_build_residual_oof(args: argparse.Namespace) -> None:
     locations = dict(entries)
     if len(entries) != len(locations):
         raise ValueError("canonical OOF block names must be unique")
-    result = write_canonical_oof_artifact(locations, args.output)
+    result = write_canonical_oof_artifact(locations, args.output, strict_counts=True)
     if args.outer:
         canonical = load_canonical_oof_artifact(args.output)
         view = outer_residual(canonical, args.outer)

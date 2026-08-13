@@ -14,9 +14,10 @@ dependencies = [
 
 [project.optional-dependencies]
 yaml = ["PyYAML>=6"]
-models = ["catboost>=1.2", "lightgbm>=4", "pandas>=2", "scikit-learn>=1.2", "torch>=2.2"]
+event-flow = ["polars>=1.0"]
+models = ["catboost>=1.2", "lightgbm>=4", "pandas>=2", "polars>=1.0", "scikit-learn>=1.2", "torch>=2.2"]
 clean-realmlp = ["pandas>=2", "scikit-learn>=1.2", "torch>=2.2"]
-dev = ["pytest>=7", "catboost>=1.2", "lightgbm>=4", "pandas>=2", "scikit-learn>=1.2", "torch>=2.2"]
+dev = ["pytest>=7", "catboost>=1.2", "lightgbm>=4", "pandas>=2", "polars>=1.0", "scikit-learn>=1.2", "torch>=2.2"]
 
 [project.scripts]
 mscapital = "mscapital.cli:main"

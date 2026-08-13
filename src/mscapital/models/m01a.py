@@ -402,12 +402,42 @@ def run_m01a_outer(
 def summarize_m01a(artifact_root: str | Path) -> dict[str, Any]:
     rows = []
     for outer in ("PSEUDO", "H2", "T3", "T4"):
-        manifest = json.loads(
-            (Path(artifact_root) / "m01-a" / outer / "manifest.json").read_text(encoding="utf-8")
-        )
+        directory = Path(artifact_root) / "m01-a" / outer
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
         if manifest.get("status") != "complete":
             raise ValueError(f"{outer}: M01-A artifact is incomplete")
-        rows.append(manifest["diagnostics"])
+        diagnostics = manifest.get("diagnostics")
+        if not isinstance(diagnostics, dict):
+            raise ValueError(f"{outer}: M01-A diagnostics are missing")
+        prediction_path = directory / "predictions.npz"
+        if not prediction_path.exists():
+            raise FileNotFoundError(f"{outer}: predictions.npz is required")
+        with np.load(prediction_path) as source:
+            required = {"sample_id", "month", "target", "baseline_pred", "residual_pred", "pred", "split"}
+            if set(source.files) != required:
+                raise ValueError(f"{outer}: predictions.npz schema is invalid")
+            artifact = {key: np.asarray(source[key]) for key in required}
+        lengths = {value.reshape(-1).size for value in artifact.values()}
+        if len(lengths) != 1 or diagnostics.get("rows") != artifact["pred"].size:
+            raise ValueError(f"{outer}: predictions.npz row count is invalid")
+        finite_ok = all(np.isfinite(artifact[key]).all() for key in ("target", "baseline_pred", "residual_pred", "pred"))
+        if not finite_ok:
+            raise ValueError(f"{outer}: predictions.npz contains non-finite values")
+        expected_months = set(range(
+            NESTED_SPLITS[outer].outer_valid.start,
+            NESTED_SPLITS[outer].outer_valid.end + 1,
+        ))
+        if set(artifact["month"].tolist()) != expected_months:
+            raise ValueError(f"{outer}: prediction months are invalid")
+        if not np.array_equal(
+            artifact["split"], np.full(artifact["pred"].size, f"{outer}:m01-a")
+        ):
+            raise ValueError(f"{outer}: prediction split labels are invalid")
+        if np.unique(artifact["sample_id"]).size != artifact["sample_id"].size:
+            raise ValueError(f"{outer}: prediction sample_id values are not unique")
+        diagnostics = dict(diagnostics)
+        diagnostics["finite_ok"] = bool(finite_ok)
+        rows.append(diagnostics)
     deltas = np.array([row["delta_vs_baseline"] for row in rows], dtype=float)
     drift_ok = all(
         0.67 <= row["drift"]["std_test_over_valid"] <= 1.50
@@ -419,11 +449,13 @@ def summarize_m01a(artifact_root: str | Path) -> dict[str, Any]:
         "positive_outers": int((deltas > 0.0).sum()),
         "worst_delta": float(deltas.min()),
         "drift_ok": drift_ok,
+        "finite_ok": all(bool(row.get("finite_ok")) for row in rows),
     }
     gate["passed"] = bool(
         gate["pseudo_delta_at_least_0_0015"]
         and gate["positive_outers"] >= 3
         and gate["worst_delta"] >= -0.0005
         and gate["drift_ok"]
+        and gate["finite_ok"]
     )
     return {"rows": rows, "mean_delta": float(deltas.mean()), "gate": gate}
