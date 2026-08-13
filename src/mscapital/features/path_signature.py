@@ -193,7 +193,7 @@ def _window_path(
         quote_rows[name][quote_window]
         for name in ("bid_volume_1", "ask_volume_1", "bid_volume_2", "ask_volume_2")
     )
-    depth_scale = max(float(np.mean(total_depth)), _EPSILON)
+    depth_scale = max(float(np.mean(total_depth)) if total_depth.size else 0.0, _EPSILON)
     first_quote = int(selected[0])
     path[covered, 4] = (quote_ofi[selected] - quote_ofi[first_quote]) / depth_scale
 
