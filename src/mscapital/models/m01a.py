@@ -113,9 +113,10 @@ def load_event_flow_frame(path: str | Path) -> EventFlowFrame:
     if missing:
         raise ValueError(f"Event Flow artifact is missing columns: {sorted(missing)}")
     frame = frame.sort("sample_id")
+    raw_target = frame["target"].to_numpy()
     result = EventFlowFrame(
         frame["sample_id"].to_numpy(), frame["month"].to_numpy(),
-        frame["target"].to_numpy().astype(np.float64),
+        raw_target.astype(np.float64),
         frame.select(names).to_numpy().astype(np.float32), tuple(names),
     )
     result.validate()
@@ -123,6 +124,14 @@ def load_event_flow_frame(path: str | Path) -> EventFlowFrame:
         raise ValueError("M01-A Event Flow feature hash is invalid")
     if manifest.get("diagnostics", {}).get("rows") != result.sample_id.size:
         raise ValueError("M01-A Event Flow manifest row count is invalid")
+    expected_hashes = {
+        "sample_id": array_hash(result.sample_id),
+        "month": array_hash(result.month),
+        "target": array_hash(raw_target),
+        "values": array_hash(result.values),
+    }
+    if manifest.get("diagnostics", {}).get("artifact_hashes") != expected_hashes:
+        raise ValueError("M01-A Event Flow artifact hashes are invalid")
     return result
 
 

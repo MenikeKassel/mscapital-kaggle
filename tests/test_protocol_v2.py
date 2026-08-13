@@ -227,6 +227,10 @@ def test_m01a_event_flow_normalizations_and_streaming_match(tmp_path) -> None:
     assert result["rows"] == 74
     assert streamed.filter(pl.col("sample_id").is_in([1, 2, 3])).select(names).to_numpy() == pytest.approx(values)
     assert json.loads((output.parent / "manifest.json").read_text())["status"] == "complete"
+    loaded_manifest = json.loads((output.parent / "manifest.json").read_text())
+    assert set(loaded_manifest["diagnostics"]["artifact_hashes"]) == {
+        "sample_id", "month", "target", "values"
+    }
 
 
 def test_m01a_alpha_grid_uses_uncentered_cosine_and_first_tie() -> None:
@@ -277,9 +281,15 @@ def test_m01a_selection_has_no_outer_target_input() -> None:
             "sample_id": [21], "seconds_before_predict": [1.0], "volume": [1], "side": [0],
         },
     )[1])
+    future_months = np.arange(61, 71)
+    all_months = np.concatenate((months, future_months))
+    base_values = np.tile(
+        np.linspace(0.0, 1.0, len(names)), (all_months.size, 1)
+    ).astype(np.float32)
     features = EventFlowFrame(
-        sample_id=months, month=months, target=months / 100,
-        values=np.tile(np.linspace(0.0, 1.0, len(names)), (months.size, 1)).astype(np.float32),
+        sample_id=all_months, month=all_months,
+        target=np.concatenate((months / 100, np.zeros(future_months.size))),
+        values=base_values,
         feature_names=names,
     )
     created = []
@@ -291,12 +301,17 @@ def test_m01a_selection_has_no_outer_target_input() -> None:
     first = fit_m01a_selection(
         canonical, features, "T4", config=M01AConfig(max_iterations=20), model_factory=factory
     )
-    # No outer-valid target is accepted by the selection API; changing an unrelated
-    # future vector cannot alter beta, best iteration or alpha.
-    future_target = np.full(10, 999.0)
-    future_target[:] = -999.0
+    # No outer-valid target is accepted by the selection API; changing both future
+    # features and targets cannot alter beta, best iteration or alpha.
+    changed_values = base_values.copy()
+    changed_values[-future_months.size:] = 999.0
+    changed_features = EventFlowFrame(
+        sample_id=all_months, month=all_months,
+        target=np.concatenate((months / 100, np.full(future_months.size, -999.0))),
+        values=changed_values, feature_names=names,
+    )
     second = fit_m01a_selection(
-        canonical, features, "T4", config=M01AConfig(max_iterations=20), model_factory=factory
+        canonical, changed_features, "T4", config=M01AConfig(max_iterations=20), model_factory=factory
     )
     assert (first.beta, first.best_iteration, first.alpha) == (
         second.beta, second.best_iteration, second.alpha

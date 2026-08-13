@@ -9,7 +9,7 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
-from ..artifacts import ExperimentManifest, feature_hash
+from ..artifacts import ExperimentManifest, array_hash, feature_hash
 from .ofi import WINDOWS, signed_order_flow, signed_trade_flow
 
 
@@ -200,6 +200,12 @@ def build_event_flow_file(
         "feature_names": names,
         "feature_hash": feature_hash(names),
         "output_columns": frame.columns,
+        "artifact_hashes": {
+            "sample_id": array_hash(frame["sample_id"].to_numpy()),
+            "month": array_hash(frame["month"].to_numpy()),
+            "target": array_hash(frame["target"].to_numpy()),
+            "values": array_hash(values),
+        },
     }
     payload = json.dumps(diagnostics, sort_keys=True, separators=(",", ":")).encode("utf-8")
     result_hash = hashlib.sha256(payload).hexdigest()
