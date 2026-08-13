@@ -11,7 +11,7 @@ import numpy as np
 
 from .artifacts import ExperimentManifest, save_predictions
 from .config import config_hash, load_config
-from .features.lob_geometry import build_lob_geometry
+from .features.lob_geometry import build_lob_geometry, build_lob_geometry_file
 from .features.event_flow import build_event_flow_file
 from .features.ofi import build_m01_features, select_m01_stage
 from .metrics import cosine_uncentered, normalize_prediction
@@ -421,6 +421,31 @@ def _cmd_build_geometry(args: argparse.Namespace) -> None:
     print(json.dumps({"output": str(args.output), "rows": int(ids.size), "features": len(names)}, indent=2))
 
 
+def _cmd_build_geometry_file(args: argparse.Namespace) -> None:
+    result = build_lob_geometry_file(args.market, args.labels, args.output)
+    print(json.dumps(result, indent=2))
+
+
+def _cmd_run_m02(args: argparse.Namespace) -> None:
+    from .models.m02 import load_geometry_frame, run_m02_outer
+    from .models.m01a import M01AConfig
+
+    canonical = load_canonical_oof_artifact(args.canonical_oof)
+    features = load_geometry_frame(args.features)
+    config = M01AConfig.from_mapping(_load_json_mapping(args.config))
+    outers = ("PSEUDO", "H2", "T3", "T4") if args.outer == "ALL" else (args.outer,)
+    results = [run_m02_outer(canonical, features, args.baseline_root, args.output_root, outer, config=config) for outer in outers]
+    print(json.dumps(results, indent=2))
+
+
+def _cmd_summarize_m02(args: argparse.Namespace) -> None:
+    from .models.m02 import summarize_m02
+    result = summarize_m02(args.artifact_root)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    print(json.dumps(result, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mscapital")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -556,6 +581,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--market", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.set_defaults(func=_cmd_build_geometry)
+    p = sub.add_parser("build-geometry-file", help="stream M02 Geometry features to Parquet")
+    p.add_argument("--market", type=Path, required=True)
+    p.add_argument("--labels", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
+    p.set_defaults(func=_cmd_build_geometry_file)
+    p = sub.add_parser("run-m02", help="train and replay M02 Geometry residual alpha")
+    p.add_argument("--canonical-oof", type=Path, required=True)
+    p.add_argument("--features", type=Path, required=True)
+    p.add_argument("--baseline-root", type=Path, required=True)
+    p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument("--config", type=Path, default=Path("configs/m01-a.json"))
+    p.add_argument("--outer", choices=("PSEUDO", "H2", "T3", "T4", "ALL"), required=True)
+    p.set_defaults(func=_cmd_run_m02)
+    p = sub.add_parser("summarize-m02", help="apply the four-fold M02 Geometry candidate gate")
+    p.add_argument("--artifact-root", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
+    p.set_defaults(func=_cmd_summarize_m02)
     p = sub.add_parser("run-alpha", help="combine an RMS baseline with a residual prediction")
     p.add_argument("--baseline", type=Path, required=True)
     p.add_argument("--residual", type=Path, required=True)
