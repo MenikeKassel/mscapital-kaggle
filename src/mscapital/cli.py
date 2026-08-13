@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 from pathlib import Path
 
 import numpy as np
@@ -16,7 +15,14 @@ from .features.lob_geometry import build_lob_geometry
 from .features.ofi import build_m01_features, select_m01_stage
 from .metrics import cosine_uncentered, normalize_prediction
 from .diagnostics import prediction_diagnostics, drift_report
-from .residual import OOFBlock, build_canonical_oof, outer_residual, rolling_window_spec
+from .residual import (
+    OOFBlock,
+    build_canonical_oof,
+    build_clean_baseline_oof_block,
+    load_clean_baseline_oof_block,
+    outer_residual,
+    rolling_window_spec,
+)
 from .splits import NESTED_SPLITS, OUTER_SPLITS, TRAINING_SPLITS
 
 
@@ -260,23 +266,19 @@ def _parse_block(value: str) -> tuple[str, Path]:
     return name, Path(path)
 
 
+def _cmd_build_clean_baseline_oof_block(args: argparse.Namespace) -> None:
+    result = build_clean_baseline_oof_block(
+        args.realmlp_dir, args.table_dir, args.split, args.output_root,
+        allow_smoke_config=args.smoke,
+    )
+    print(json.dumps(result, indent=2))
+
+
 def _cmd_build_residual_oof(args: argparse.Namespace) -> None:
-    blocks: list[OOFBlock] = []
-    for name, path in map(_parse_block, args.block):
-        data = np.load(path)
-        source_end_match = re.search(r"train(?:_|-)?(\d+)", name)
-        if source_end_match is None:
-            raise ValueError(f"block name must include train end, e.g. m21_30_train20: {name}")
-        blocks.append(
-            OOFBlock(
-                name=name,
-                sample_id=data["sample_id"],
-                month=data["month"],
-                target=data["target"],
-                baseline_oof=data["pred"],
-                source_train_end=int(source_end_match.group(1)),
-            )
-        )
+    blocks = [
+        load_clean_baseline_oof_block(path, split_name)
+        for split_name, path in map(_parse_block, args.block)
+    ]
     canonical = build_canonical_oof(blocks)
     canonical.save(args.output)
     result = {"output": str(args.output), "rows": int(canonical.sample_id.size)}
@@ -453,8 +455,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--baseline-id", default="clean-realmlp-v2a")
     p.add_argument("--candidate-id", required=True)
     p.set_defaults(func=_cmd_compare_realmlp_inner)
+    p = sub.add_parser("build-clean-baseline-oof-block", help="build one fixed-rule rolling OOF block")
+    p.add_argument("--realmlp-dir", type=Path, required=True)
+    p.add_argument("--table-dir", type=Path, required=True)
+    p.add_argument("--split", choices=("R21_30", "R31_40", "R41_50", "R51_60", "R61_70"), required=True)
+    p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument(
+        "--smoke", action="store_true",
+        help="allow noncanonical component configs and mark the output as smoke-only",
+    )
+    p.set_defaults(func=_cmd_build_clean_baseline_oof_block)
     p = sub.add_parser("build-residual-oof", help="merge unique rolling OOF blocks")
-    p.add_argument("--block", action="append", required=True, help="NAME=PATH, name must include train end")
+    p.add_argument(
+        "--block", action="append", required=True,
+        help="SPLIT=PATH to a formal rolling block directory or its predictions.npz",
+    )
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--outer", choices=tuple(OUTER_SPLITS))
     p.set_defaults(func=_cmd_build_residual_oof)

@@ -22,8 +22,15 @@ from mscapital.preprocessing import (
     FoldSafePreprocessor,
     prepare_target,
 )
-from mscapital.residual import OOFBlock, build_canonical_oof, outer_residual
-from mscapital.splits import NESTED_SPLITS, ROLLING_WINDOWS
+from mscapital.clean_baseline import REALMLP_CONFIG_HASH, TABLE_CONFIG_HASH
+from mscapital.residual import (
+    OOFBlock,
+    build_canonical_oof,
+    build_clean_baseline_oof_block,
+    load_clean_baseline_oof_block,
+    outer_residual,
+)
+from mscapital.splits import CANONICAL_ROLLING_SPLITS, NESTED_SPLITS, ROLLING_WINDOWS
 
 
 def test_uncentered_metric_is_not_centered_and_handles_zero() -> None:
@@ -42,6 +49,19 @@ def test_nested_splits_have_no_inner_or_outer_overlap() -> None:
     assert [name for name, _, _ in ROLLING_WINDOWS] == [
         "m21_30", "m31_40", "m41_50", "m51_60", "m61_70"
     ]
+    assert {
+        name: (
+            split.inner_train.as_tuple(), split.inner_tune.as_tuple(),
+            split.refit_train.as_tuple(), split.outer_valid.as_tuple(),
+        )
+        for name, split in CANONICAL_ROLLING_SPLITS.items()
+    } == {
+        "R21_30": ((0, 10), (11, 20), (0, 20), (21, 30)),
+        "R31_40": ((0, 20), (21, 30), (0, 30), (31, 40)),
+        "R41_50": ((0, 30), (31, 40), (0, 40), (41, 50)),
+        "R51_60": ((0, 40), (41, 50), (0, 50), (51, 60)),
+        "R61_70": ((0, 50), (51, 60), (0, 60), (61, 70)),
+    }
 
 
 def test_fold_safe_preprocessor_does_not_learn_validation_extreme() -> None:
@@ -170,7 +190,7 @@ def test_canonical_oof_is_unique_and_outer_beta_uses_only_visible_history() -> N
         "m31_40_train30", np.arange(11, 21), np.arange(31, 41),
         np.arange(22.0, 42.0, 2.0), np.arange(11.0, 21.0), 30
     )
-    canonical = build_canonical_oof([block_a, block_b])
+    canonical = build_canonical_oof([block_a, block_b], require_complete=False)
     view = outer_residual(canonical, "PSEUDO")
     assert np.asarray(view["sample_id"]).tolist() == list(range(1, 13))
     assert view["beta"] == pytest.approx(2.0)
@@ -179,7 +199,130 @@ def test_canonical_oof_is_unique_and_outer_beta_uses_only_visible_history() -> N
             block_a,
             block_b,
             block_b,
-        ])
+        ], require_complete=False)
+
+
+def _write_component_dir(
+    directory, *, component: str, split_name: str, outer_target_delta: float = 0.0
+):
+    split = CANONICAL_ROLLING_SPLITS[split_name]
+    inner_month = np.arange(split.inner_tune.start, split.inner_tune.end + 1)
+    outer_month = np.arange(split.outer_valid.start, split.outer_valid.end + 1)
+    inner_target = np.linspace(-1.0, 1.0, inner_month.size)
+    outer_target = np.linspace(-1.0, 1.0, outer_month.size) + outer_target_delta
+    factor = 2.0 if component == "realmlp" else 0.5
+    directory.mkdir(parents=True)
+    np.savez(
+        directory / "inner_predictions.npz",
+        sample_id=np.arange(inner_month.size), month=inner_month,
+        target=inner_target, pred=inner_target * factor,
+    )
+    np.savez(
+        directory / "predictions.npz",
+        sample_id=np.arange(outer_month.size) + 100, month=outer_month,
+        target=outer_target, pred=outer_target * factor,
+    )
+    experiment = f"canonical-{component}-{split_name.lower()}"
+    config_hash = REALMLP_CONFIG_HASH if component == "realmlp" else TABLE_CONFIG_HASH
+    (directory / "manifest.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": experiment,
+                "status": "complete",
+                "config_hash": config_hash,
+                "feature_hash": f"{component}-features",
+                "git_sha": "test-sha",
+                "train_months": list(split.refit_train.as_tuple()),
+                "valid_months": list(split.outer_valid.as_tuple()),
+                "data_fingerprints": {f"{component}-data": "same"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_clean_baseline_oof_block_uses_only_its_inner_scales(tmp_path) -> None:
+    realmlp = tmp_path / "realmlp"
+    table = tmp_path / "table"
+    _write_component_dir(realmlp, component="realmlp", split_name="R21_30")
+    _write_component_dir(table, component="table", split_name="R21_30")
+    first = build_clean_baseline_oof_block(realmlp, table, "R21_30", tmp_path / "first")
+    assert first["source_train_end"] == 20
+    assert first["scale_realmlp"] > first["scale_table"]
+    artifact = np.load(tmp_path / "first" / "R21_30" / "predictions.npz")
+    assert set(artifact.files) == {
+        "sample_id", "month", "target", "baseline_oof", "source_train_end"
+    }
+    assert set(artifact["month"]) == set(range(21, 31))
+    assert set(artifact["source_train_end"]) == {20}
+
+    outer_realmlp = dict(np.load(realmlp / "predictions.npz"))
+    outer_table = dict(np.load(table / "predictions.npz"))
+    outer_realmlp["target"] = outer_realmlp["target"] + 99.0
+    outer_table["target"] = outer_table["target"] + 99.0
+    np.savez(realmlp / "predictions.npz", **outer_realmlp)
+    np.savez(table / "predictions.npz", **outer_table)
+    second = build_clean_baseline_oof_block(realmlp, table, "R21_30", tmp_path / "second")
+    assert first["scale_realmlp"] == second["scale_realmlp"]
+    assert first["scale_table"] == second["scale_table"]
+
+
+def test_complete_canonical_oof_has_five_unique_strict_history_blocks() -> None:
+    blocks = []
+    sample_start = 0
+    for name, train, valid in ROLLING_WINDOWS:
+        months = np.arange(valid.start, valid.end + 1)
+        sample_id = np.arange(sample_start, sample_start + months.size)
+        sample_start += months.size
+        blocks.append(
+            OOFBlock(name, sample_id, months, months.astype(float), months / 100.0, train.end)
+        )
+    canonical = build_canonical_oof(blocks)
+    assert canonical.sample_id.size == 50
+    assert set(canonical.month) == set(range(21, 71))
+    assert np.max(outer_residual(canonical, "T4")["month"]) == 50
+    assert np.max(outer_residual(canonical, "PSEUDO")["month"]) == 32
+    with pytest.raises(ValueError, match="all five"):
+        build_canonical_oof(blocks[:-1])
+
+
+def test_smoke_oof_block_is_explicit_and_rejected_by_canonical_loader(tmp_path) -> None:
+    realmlp = tmp_path / "realmlp"
+    table = tmp_path / "table"
+    _write_component_dir(realmlp, component="realmlp", split_name="R21_30")
+    _write_component_dir(table, component="table", split_name="R21_30")
+    realmlp_manifest = json.loads((realmlp / "manifest.json").read_text())
+    table_manifest = json.loads((table / "manifest.json").read_text())
+    realmlp_manifest["config_hash"] = "smoke-realmlp"
+    table_manifest["config_hash"] = "smoke-table"
+    (realmlp / "manifest.json").write_text(json.dumps(realmlp_manifest))
+    (table / "manifest.json").write_text(json.dumps(table_manifest))
+    output = tmp_path / "blocks"
+    build_clean_baseline_oof_block(
+        realmlp, table, "R21_30", output, allow_smoke_config=True
+    )
+    manifest = json.loads((output / "R21_30" / "manifest.json").read_text())
+    assert manifest["status"] == "smoke"
+    with pytest.raises(ValueError, match="status"):
+        load_clean_baseline_oof_block(output / "R21_30", "R21_30")
+
+
+def test_formal_oof_block_loader_rejects_tampering(tmp_path) -> None:
+    realmlp = tmp_path / "realmlp"
+    table = tmp_path / "table"
+    _write_component_dir(realmlp, component="realmlp", split_name="R21_30")
+    _write_component_dir(table, component="table", split_name="R21_30")
+    output = tmp_path / "blocks"
+    build_clean_baseline_oof_block(realmlp, table, "R21_30", output)
+    directory = output / "R21_30"
+    loaded = load_clean_baseline_oof_block(directory, "R21_30")
+    assert loaded.source_train_end == 20
+    artifact = dict(np.load(directory / "predictions.npz"))
+    artifact["baseline_oof"] = artifact["baseline_oof"].copy()
+    artifact["baseline_oof"][0] += 1.0
+    np.savez(directory / "predictions.npz", **artifact)
+    with pytest.raises(ValueError, match="hash"):
+        load_clean_baseline_oof_block(directory, "R21_30")
 
 
 def test_ensemble_calibrator_reuses_inner_scales() -> None:
