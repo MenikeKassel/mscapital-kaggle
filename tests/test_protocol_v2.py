@@ -10,6 +10,7 @@ from mscapital.cli import build_parser, main
 from mscapital.ensemble import EnsembleCalibrator, NestedBlendFold, evaluate_nested_blend
 from mscapital.features.lob_geometry import (
     _latest_quotes_stream,
+    build_lob_geometry,
     build_lob_geometry_file,
     geometry_feature_names,
     lob_geometry_row,
@@ -107,6 +108,22 @@ def test_m02_streaming_quote_reader_keeps_cross_batch_pending_sample(tmp_path, m
     result = _latest_quotes_stream(tmp_path / "ignored.feather")
     assert result["sample_id"].tolist() == [5, 7]
     assert result["bid_price_1"].tolist() == [2.0, 3.0]
+
+
+def test_m02_geometry_marks_crossed_or_zero_quote_missing() -> None:
+    market = {
+        "sample_id": np.array([1, 2]),
+        "seconds_before_predict": np.array([1.0, 1.0]),
+        "bid_price_1": np.array([1.0, 0.0]), "bid_volume_1": np.array([2.0, 2.0]),
+        "ask_price_1": np.array([2.0, 0.0]), "ask_volume_1": np.array([2.0, 2.0]),
+        "bid_price_2": np.array([0.5, 0.0]), "bid_volume_2": np.array([1.0, 1.0]),
+        "ask_price_2": np.array([2.5, 0.0]), "ask_volume_2": np.array([1.0, 1.0]),
+    }
+    ids, names, values = build_lob_geometry(market)
+    assert ids.tolist() == [1, 2]
+    assert values[0, names.index("lob_quote_missing")] == 0.0
+    assert values[1, names.index("lob_quote_missing")] == 1.0
+    assert np.isfinite(values).all()
 
 
 def test_nested_splits_have_no_inner_or_outer_overlap() -> None:

@@ -10,17 +10,17 @@ Feature artifact:
 - rows: `1,257,637`
 - features: `21` (20 geometry values plus `lob_quote_missing`)
 - feature hash: `3d2cf0efeca9e6d8bb890ab584b32f7a4b911ae193d07e5ebce828b3076a20b1`
-- missing quote rows retained: `0` (all 219 apparent misses in the first run
-  were corrected as cross-Arrow-batch continuation rows)
+- missing/invalid latest quotes: `5,804` (retained as zero-valued geometry with
+  `lob_quote_missing=1`)
 
 | Outer | Rows | Baseline | M02 final | Delta | Alpha | Best iteration | Beta | Prediction corr. |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| PSEUDO | 672,948 | 0.142550340 | 0.143045011 | +0.000494671 | 0.10 | 167 | 0.000401903 | 0.997517 |
-| H2 | 177,542 | 0.141861992 | 0.142178732 | +0.000316740 | 0.05 | 20 | 0.000380418 | 0.999850 |
-| T3 | 177,542 | 0.143549308 | 0.143965793 | +0.000416486 | 0.05 | 36 | 0.000370296 | 0.999465 |
-| T4 | 175,704 | 0.157053101 | 0.157709848 | +0.000656746 | 0.05 | 36 | 0.000370296 | 0.999558 |
+| PSEUDO | 672,948 | 0.142550340 | 0.143025766 | +0.000475426 | 0.09 | 145 | 0.000401903 | 0.997990 |
+| H2 | 177,542 | 0.141861992 | 0.142389314 | +0.000527322 | 0.07 | 44 | 0.000380418 | 0.999385 |
+| T3 | 177,542 | 0.143549308 | 0.144100186 | +0.000550879 | 0.07 | 74 | 0.000370296 | 0.998801 |
+| T4 | 175,704 | 0.157053101 | 0.157679166 | +0.000626064 | 0.07 | 74 | 0.000370296 | 0.998997 |
 
-Mean delta: `+0.000471161`; all four outer folds are positive. Every
+Mean delta: `+0.000544923`; all four outer folds are positive. Every
 prediction is finite and every drift ratio is within the configured range.
 The candidate gate nevertheless fails because PSEUDO improvement is below
 the required `+0.0015` threshold. Following the frozen route, M02 geometry is

@@ -131,6 +131,15 @@ def build_lob_geometry(market: Mapping[str, object]) -> tuple[np.ndarray, list[s
     }
     names = sorted(raw)
     values = np.column_stack([raw[name] for name in names]).astype(np.float32)
+    usable = (
+        np.isfinite(bid1) & np.isfinite(ask1) & np.isfinite(bid2) & np.isfinite(ask2)
+        & np.isfinite(bv1) & np.isfinite(av1) & np.isfinite(bv2) & np.isfinite(av2)
+        & (bv1 >= 0) & (av1 >= 0) & (bv2 >= 0) & (av2 >= 0)
+        & (bid2 <= bid1) & (bid1 < ask1) & (ask1 <= ask2)
+    )
+    if not np.all(usable):
+        values[~usable] = 0.0
+        values[~usable, names.index("lob_quote_missing")] = 1.0
     return ids, names, values
 
 
@@ -180,8 +189,8 @@ def _latest_quotes_stream(path: str | Path) -> dict[str, np.ndarray]:
         boundaries = np.flatnonzero(ids[1:] != ids[:-1]) + 1
         starts = np.concatenate(([0], boundaries))
         ends = np.concatenate((boundaries, [ids.size]))
-        # Select the latest usable timestamp per run.  Source rows are normally
-        # ordered, but this keeps the streaming path correct if a batch is not.
+        # Select the latest timestamp per run. Source rows are normally ordered,
+        # but this keeps the streaming path correct if a batch is not.
         seconds = np.asarray(columns["seconds_before_predict"], dtype=np.float64)
         run_ids = ids[ends - 1]
         latest_indices = ends - 1
@@ -280,7 +289,6 @@ def build_lob_geometry_file(
     full_values[:, names.index("lob_quote_missing")] = 1.0
     positions = np.searchsorted(label_ids, ids)
     full_values[positions] = values
-    full_values[positions, names.index("lob_quote_missing")] = 0.0
     finite_rows = np.isfinite(full_values).all(axis=1)
     if not np.all(finite_rows):
         full_values[~finite_rows] = 0.0
