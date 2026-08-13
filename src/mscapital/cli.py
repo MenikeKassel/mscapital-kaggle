@@ -504,7 +504,8 @@ def _cmd_build_m04(args: argparse.Namespace) -> None:
 
 def _cmd_run_m04(args: argparse.Namespace) -> None:
     from .models.m01a import M01AConfig
-    from .models.m04 import load_optiver_interaction_frame, run_m04_outer
+    from .features.optiver_interactions import load_optiver_interaction_frame
+    from .models.m04 import run_m04_outer
     canonical = load_canonical_oof_artifact(args.canonical_oof)
     if args.features:
         features = load_optiver_interaction_frame(args.features)
