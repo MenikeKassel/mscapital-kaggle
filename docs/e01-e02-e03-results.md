@@ -2,6 +2,21 @@
 
 本记录对应 E01 ReVol-lite、E02 Reconditionor-lite 和 E03 稳定性审计。所有结果都来自 `output/`，没有读取 test target，也没有生成 Kaggle submission。
 
+## 使用状态（重要）
+
+- **E01 ReVol-lite：没有作为提交模型或融合成员使用。** 四折均为正，但
+  PSEUDO 增益 `+0.001096651` 未达到 `+0.0015` 门槛，因此不进入 Clean
+  Baseline 融合，也不生成 test prediction。
+- **E02 Reconditionor-lite：没有作为预测模型使用。** 它是 residual/context
+  诊断，说明市场状态对 baseline 残差具有可解释性；其通过结果只允许后续
+  注册 E05 learned retrieval，不代表 E02 本身是候选模型。
+- **E03 稳定性审计：没有产生模型。** 它只审计 E01 的月度/state 稳定性，
+  不输出可提交预测，也不能覆盖 E01 基础 gate 失败。
+- **M01-A Event Flow、M02 Geometry：均没有晋级。** 两者的四折结果和
+  gate 决策分别记录在 [`docs/m01-a-results.md`](m01-a-results.md) 和
+  [`docs/m02-geometry-results.md`](m02-geometry-results.md)；增益不足以
+  进入融合或提交候选。
+
 ## E01 ReVol-lite
 
 特征 artifact：`output/e01_revol_lite_features/revol_lite_train.parquet`
@@ -50,4 +65,3 @@ E02 gate **通过**。这只表示未来可以注册 E05 learned retrieval；E02
 - E01 summary：`output/e01_revol_lite_summary.json` 和 `.md`
 - E03 audit：`output/e03_stability/`
 - E02 diagnostic：`output/e02_context_shift/`
-
