@@ -197,11 +197,11 @@ def _cmd_freeze_clean_baseline(args: argparse.Namespace) -> None:
     from .clean_baseline import freeze_production_scales
 
     result = freeze_production_scales(
-        args.realmlp_m51,
-        args.table_m51,
-        args.realmlp_m61,
-        args.table_m61,
-        args.output_root,
+        args.realmlp_m51_dir,
+        args.table_m51_dir,
+        args.realmlp_m61_dir,
+        args.table_m61_dir,
+        args.calibration_root,
         experiment_id=args.experiment_id,
     )
     print(json.dumps(result, indent=2))
@@ -426,11 +426,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--experiment-id", default="clean-baseline-v2")
     p.set_defaults(func=_cmd_calibrate_clean_baseline)
     p = sub.add_parser("freeze-clean-baseline", help="fit production RMS scales from canonical rolling OOF m51-70")
-    p.add_argument("--realmlp-m51", type=Path, required=True)
-    p.add_argument("--table-m51", type=Path, required=True)
-    p.add_argument("--realmlp-m61", type=Path, required=True)
-    p.add_argument("--table-m61", type=Path, required=True)
-    p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument("--realmlp-m51-dir", type=Path, required=True)
+    p.add_argument("--table-m51-dir", type=Path, required=True)
+    p.add_argument("--realmlp-m61-dir", type=Path, required=True)
+    p.add_argument("--table-m61-dir", type=Path, required=True)
+    p.add_argument("--calibration-root", type=Path, required=True)
     p.add_argument("--experiment-id", default="clean-baseline-v2")
     p.set_defaults(func=_cmd_freeze_clean_baseline)
     p = sub.add_parser("realmlp-inner", help="run a C2 inner-only RealMLP diagnostic")

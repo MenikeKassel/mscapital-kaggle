@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -50,7 +51,14 @@ def test_calibration_selection_does_not_depend_on_outer_predictions(tmp_path: Pa
     ]
     assert first["gate"]["applies_to"] == "fold_specific_nested_calibrations"
     assert first["gate"]["passed"] is True
+    assert first["production_rule_stress_gate"]["passed"] is True
     assert first["status"] == "calibration-selected-scales-pending"
+    for outer in NESTED_SPLITS:
+        fold = tmp_path / "first" / "clean-baseline-v2" / outer
+        assert (fold / "fold_adaptive_predictions.npz").exists()
+        assert (fold / "production_rule_stress_predictions.npz").exists()
+        assert (fold / "components.npz").exists()
+        assert not (fold / "predictions.npz").exists()
 
 
 def test_calibration_rejects_misaligned_ids(tmp_path: Path):
@@ -75,26 +83,78 @@ def test_canonical_scale_split_is_strictly_historical():
     assert "R61_70" not in NESTED_SPLITS
 
 
-def _write_scale_block(path: Path, months: range, pred: np.ndarray, target: np.ndarray) -> None:
+def _write_scale_block(
+    directory: Path,
+    months: range,
+    pred: np.ndarray,
+    target: np.ndarray,
+    *,
+    experiment_id: str,
+    config_hash: str,
+    train_months: tuple[int, int],
+    data_fingerprints: dict[str, str],
+) -> None:
+    directory.mkdir(parents=True)
     month = np.asarray(list(months), dtype=np.int16)
     np.savez(
-        path,
+        directory / "predictions.npz",
         sample_id=np.arange(month.size, dtype=np.int64) + int(month[0]) * 100,
         month=month,
         target=target,
         pred=pred,
+    )
+    (directory / "manifest.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": experiment_id,
+                "status": "complete",
+                "config_hash": config_hash,
+                "train_months": list(train_months),
+                "valid_months": [int(month[0]), int(month[-1])],
+                "data_fingerprints": data_fingerprints,
+                "diagnostics": {
+                    "n_outer_valid": int(month.size),
+                    "prediction": {"count": int(month.size)},
+                },
+            }
+        ),
+        encoding="utf-8",
     )
 
 
 def test_freeze_production_scales_uses_exact_canonical_m51_70(tmp_path: Path):
     y51 = np.linspace(-1.0, 1.0, 10)
     y61 = np.linspace(1.0, -1.0, 10)
-    paths = [tmp_path / name for name in ("r51.npz", "t51.npz", "r61.npz", "t61.npz")]
-    _write_scale_block(paths[0], range(51, 61), y51 * 2.0, y51)
-    _write_scale_block(paths[1], range(51, 61), y51 * 0.5, y51)
-    _write_scale_block(paths[2], range(61, 71), y61 * 4.0, y61)
-    _write_scale_block(paths[3], range(61, 71), y61 * 0.25, y61)
-    report = freeze_production_scales(*paths, tmp_path / "out")
+    paths = [tmp_path / name for name in ("r51", "t51", "r61", "t61")]
+    realmlp_hash = "de2e26a288361c46016a4462c4eee2201db9d05937f120200297f4a980a79da1"
+    table_hash = "02c092c7e8c5012bf49d249f331577e7434c6969a343311ad2be8cb71fc982a9"
+    _write_scale_block(
+        paths[0], range(51, 61), y51 * 2.0, y51,
+        experiment_id="c2-realmlp-epochs30-t3", config_hash=realmlp_hash,
+        train_months=(0, 50), data_fingerprints={"features": "r-data"},
+    )
+    _write_scale_block(
+        paths[1], range(51, 61), y51 * 0.5, y51,
+        experiment_id="clean-table-v2-t3", config_hash=table_hash,
+        train_months=(0, 50), data_fingerprints={"features": "t-data"},
+    )
+    _write_scale_block(
+        paths[2], range(61, 71), y61 * 4.0, y61,
+        experiment_id="c4-scale-realmlp-r61_70", config_hash=realmlp_hash,
+        train_months=(0, 60), data_fingerprints={"features": "r-data"},
+    )
+    _write_scale_block(
+        paths[3], range(61, 71), y61 * 0.25, y61,
+        experiment_id="c4-scale-table-r61_70", config_hash=table_hash,
+        train_months=(0, 60), data_fingerprints={"features": "t-data"},
+    )
+    realmlp = tmp_path / "cal-realmlp"
+    table = tmp_path / "cal-table"
+    _write_artifacts(realmlp, table=False)
+    _write_artifacts(table, table=True)
+    calibrate_clean_baseline(realmlp, table, tmp_path / "calibration")
+    calibration_root = tmp_path / "calibration" / "clean-baseline-v2"
+    report = freeze_production_scales(*paths, calibration_root)
     expected_rms_r = np.sqrt(np.mean(np.square(np.r_[y51 * 2.0, y61 * 4.0])))
     expected_rms_t = np.sqrt(np.mean(np.square(np.r_[y51 * 0.5, y61 * 0.25])))
     assert report["status"] == "frozen"
@@ -109,8 +169,38 @@ def test_freeze_production_scales_uses_exact_canonical_m51_70(tmp_path: Path):
     )
     expected_score = float(np.dot(expected_pred, combined_y) / (np.linalg.norm(expected_pred) * np.linalg.norm(combined_y)))
     assert report["canonical_oof_score"] == expected_score
-    saved = np.load(tmp_path / "out" / "clean-baseline-v2" / "production" / "canonical_scale_predictions.npz")
+    saved = np.load(calibration_root / "production" / "canonical_scale_predictions.npz")
     assert set(saved["month"]) == set(range(51, 71))
+    for outer in NESTED_SPLITS:
+        fold = calibration_root / outer
+        assert (fold / "predictions.npz").exists()
+        assert (fold / "fold_adaptive_predictions.npz").exists()
+        production = np.load(fold / "predictions.npz")
+        assert np.isfinite(production["pred"]).all()
+    final_report = json.loads((calibration_root / "clean_baseline_v2_report.json").read_text())
+    assert final_report["status"] == "frozen"
+
+
+def test_freeze_rejects_wrong_canonical_manifest(tmp_path: Path):
+    directory = tmp_path / "bad"
+    _write_scale_block(
+        directory, range(51, 61), np.ones(10), np.ones(10),
+        experiment_id="wrong", config_hash="wrong", train_months=(0, 50),
+        data_fingerprints={"features": "wrong"},
+    )
+    calibration = tmp_path / "calibration"
+    calibration.mkdir()
+    (calibration / "clean_baseline_v2_report.json").write_text(
+        json.dumps(
+            {
+                "strict_nested_gate": {"passed": True},
+                "production_rule_stress_gate": {"passed": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with np.testing.assert_raises_regex(ValueError, "experiment_id"):
+        freeze_production_scales(directory, directory, directory, directory, calibration)
 
 
 def test_production_rule_schema_rejects_bad_components():

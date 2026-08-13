@@ -27,6 +27,20 @@ The predeclared default gate passes: all four leakage-safe nested outer
 predictions are non-degrading and their mean improvement is greater than
 `+0.0005`.
 
+The fixed RMS / Table-weight `0.37` production rule also passes a separate
+correlated stress audit using each fold's inner RMS scales:
+
+| Outer | Fixed-rule stress | Delta vs RealMLP |
+|---|---:|---:|
+| PSEUDO | 0.142357676 | +0.005977758 |
+| H2 | 0.141795046 | +0.003507166 |
+| T3 | 0.143515387 | +0.003729854 |
+| T4 | 0.156923672 | +0.006629838 |
+
+The stress mean delta is `+0.004961154`. It is a post-selection, correlated
+check of the aggregated rule, not an unbiased outer estimate. The strict
+nested gate above remains the primary model-selection evidence.
+
 ## Frozen production rule
 
 The production method is the mode of the four inner-selected methods and the
@@ -48,9 +62,13 @@ and predicts 61-70. Both components were trained on Kaggle P100 kernels.
 
 | Canonical block | Rows | RealMLP | Table | Frozen blend |
 |---|---:|---:|---:|---:|
-| m51-60 | 177,542 | 0.139785568 | 0.135453873 | 0.143549307 |
-| m61-70 | 175,704 | 0.147950590 | 0.150577521 | 0.154614249 |
+| m51-60 | 177,542 | 0.139785533 | 0.135453873 | 0.143549307 |
+| m61-70 | 175,704 | 0.147950551 | 0.150577521 | 0.154614249 |
 | concatenated m51-70 | 353,246 | 0.143846440 | 0.143282516 | **0.149173320** |
+
+These values use the project metric, which coerces both serialized arrays to
+float64 before computing cosine. The concatenated score is a descriptive audit
+of the already-fixed rule, not a second method or weight selection gate.
 
 The frozen RMS scales are:
 
@@ -63,7 +81,7 @@ prediction = 0.63 * realmlp / scale_realmlp
 ```
 
 The canonical result hash is
-`65b9af31e082c2f10a9314af2e8e101067b29ec176c4e6b57d930a2593eac17f`.
+`43569a5de6838d7bb9e0d7430ebe6f94011a52a9283cd28196780c71da18f79c`.
 Component versions, method, weight, scales, component order, and scale source
 are now frozen. Later alpha experiments may not retune them.
 
@@ -73,8 +91,10 @@ are now frozen. Later alpha experiments may not retune them.
   outer artifact; all predictions were finite.
 - Calibration outputs record the fold-specific scales, input prediction
   hashes, and selected method/weight.
-- Each outer `predictions.npz` stores its leakage-safe fold-specific nested
-  prediction. No cross-fold aggregate is presented as an outer prediction.
+- Each outer keeps `fold_adaptive_predictions.npz` for the strict nested
+  diagnostic and `production_rule_stress_predictions.npz` for the correlated
+  fixed-rule audit. After scale freezing, `predictions.npz` stores the canonical-
+  scale production-default schema; its replay score is not used for selection.
 - Tests rewrite outer predictions without changing inner method/weight
   selection and reject any component ID misalignment.
 - The canonical scale builder rejects missing months, duplicate IDs, target
