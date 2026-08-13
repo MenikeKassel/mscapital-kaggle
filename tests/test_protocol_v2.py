@@ -5,7 +5,7 @@ import json
 import numpy as np
 import pytest
 
-from mscapital.artifacts import ExperimentManifest
+from mscapital.artifacts import ExperimentManifest, feature_hash
 from mscapital.cli import build_parser, main
 from mscapital.ensemble import EnsembleCalibrator, NestedBlendFold, evaluate_nested_blend
 from mscapital.features.lob_geometry import (
@@ -15,6 +15,13 @@ from mscapital.features.lob_geometry import (
     geometry_feature_names,
     lob_geometry_row,
 )
+from mscapital.features.geometry_temporal import (
+    TEMPORAL_FEATURE_COUNT,
+    geometry_temporal_feature_names,
+    temporal_feature_names,
+    temporal_features_for_rows,
+    build_geometry_temporal_file,
+)
 from mscapital.features.ofi import (
     build_m01_features,
     quote_ofi,
@@ -22,7 +29,16 @@ from mscapital.features.ofi import (
     signed_trade_flow,
 )
 from mscapital.features.ofi import select_m01_stage
-from mscapital.features.event_flow import build_event_flow_arrays, build_event_flow_file
+from mscapital.features.event_flow import (
+    build_event_flow_arrays,
+    build_event_flow_file,
+    event_flow_feature_names,
+)
+from mscapital.features.optiver_interactions import (
+    M04_FEATURE_COUNT,
+    build_optiver_interactions,
+    optiver_interaction_feature_names,
+)
 from mscapital.metrics import cosine_centered, cosine_uncentered
 from mscapital.preprocessing import (
     FoldSafeCategoricalEncoder,
@@ -60,6 +76,75 @@ def test_uncentered_metric_is_not_centered_and_handles_zero() -> None:
         cosine_uncentered([1.0], [1.0, 2.0])
 
 
+def test_m02t_feature_schema_is_fixed() -> None:
+    assert len(temporal_feature_names()) == TEMPORAL_FEATURE_COUNT == 64
+    assert len(geometry_temporal_feature_names()) == 85
+    assert len(set(geometry_temporal_feature_names())) == 85
+
+
+def test_m02t_temporal_features_are_finite_and_invalid_quotes_do_not_explode() -> None:
+    n = 4
+    market = {
+        "seconds_before_predict": np.array([60.0, 30.0, 10.0, 0.0]),
+        "bid_price_1": np.array([99.0, 99.5, 99.8, 100.0]),
+        "ask_price_1": np.array([101.0, 100.5, 100.2, 100.1]),
+        "bid_price_2": np.array([98.0, 99.0, 99.5, 99.8]),
+        "ask_price_2": np.array([102.0, 101.0, 100.5, 100.2]),
+        "bid_volume_1": np.ones(n), "ask_volume_1": np.ones(n),
+        "bid_volume_2": np.ones(n), "ask_volume_2": np.ones(n),
+    }
+    clean = temporal_features_for_rows(market)
+    broken = {key: value.copy() for key, value in market.items()}
+    broken["ask_price_1"][2] = 0.0
+    broken["ask_price_2"][2] = 0.0
+    invalid = temporal_features_for_rows(broken)
+    assert clean.shape == invalid.shape == (64,)
+    assert np.isfinite(invalid).all()
+    assert not np.array_equal(clean, invalid)
+
+
+def test_m02t_partial_coverage_does_not_create_correlation() -> None:
+    market = {
+        "seconds_before_predict": np.array([0.0]),
+        "bid_price_1": np.array([100.0]), "ask_price_1": np.array([101.0]),
+        "bid_price_2": np.array([99.0]), "ask_price_2": np.array([102.0]),
+        "bid_volume_1": np.array([2.0]), "ask_volume_1": np.array([1.0]),
+        "bid_volume_2": np.array([1.0]), "ask_volume_2": np.array([2.0]),
+    }
+    values = temporal_features_for_rows(market)
+    for offset in (2, 3, 4, 5, 6, 7, 8, 9):
+        assert values[offset] == 0.0
+
+
+def test_m02t_file_appends_to_frozen_base_and_preserves_labels(tmp_path) -> None:
+    import pyarrow as pa
+    import pyarrow.feather as feather
+
+    rows = {
+        "sample_id": np.array([0, 0, 1]),
+        "seconds_before_predict": np.array([60.0, 0.0, 0.0]),
+        "bid_price_1": np.array([99.0, 100.0, 100.0]),
+        "ask_price_1": np.array([101.0, 101.0, 101.0]),
+        "bid_price_2": np.array([98.0, 99.0, 99.0]),
+        "ask_price_2": np.array([102.0, 102.0, 102.0]),
+        "bid_volume_1": np.array([1.0, 2.0, 2.0]),
+        "ask_volume_1": np.array([1.0, 2.0, 2.0]),
+        "bid_volume_2": np.array([1.0, 1.0, 1.0]),
+        "ask_volume_2": np.array([1.0, 1.0, 1.0]),
+    }
+    market = tmp_path / "market.feather"
+    labels = tmp_path / "label.feather"
+    base = tmp_path / "base.parquet"
+    temporal = tmp_path / "temporal.parquet"
+    feather.write_feather(pa.table(rows), market)
+    feather.write_feather(pa.table({"sample_id": np.array([0, 1]), "month": np.array([0, 0]), "target": np.array([0.1, 0.2])}), labels)
+    build_lob_geometry_file(market, labels, base)
+    result = build_geometry_temporal_file(base, market, temporal)
+    assert result["rows"] == 2
+    assert result["temporal_feature_count"] == 64
+    assert result["feature_hash"] == feature_hash(geometry_temporal_feature_names())
+
+
 def test_m02_geometry_frame_requires_finite_aligned_matrix() -> None:
     names = geometry_feature_names()
     frame = GeometryFrame(
@@ -74,6 +159,119 @@ def test_m02_geometry_frame_requires_finite_aligned_matrix() -> None:
     bad.values[0, 0] = np.nan
     with pytest.raises(ValueError, match="finite"):
         bad.validate()
+
+
+def test_m04_optiver_interaction_schema_and_worked_values_are_fixed() -> None:
+    geometry_names = geometry_feature_names()
+    geometry_values = np.zeros((1, len(geometry_names)), dtype=np.float32)
+    geometry = {
+        "lob_bid1_depth_share": 0.4, "lob_bid2_depth_share": 0.1,
+        "lob_ask1_depth_share": 0.3, "lob_ask2_depth_share": 0.2,
+        "lob_bid_depth_share": 0.5, "lob_ask_depth_share": 0.5,
+        "lob_bid_l1_l2_gap": 1.0, "lob_ask_l1_l2_gap": 2.0,
+        "lob_l1_l2_volume_ratio": 7.0, "lob_shape_asymmetry": 0.25,
+    }
+    for name, value in geometry.items():
+        geometry_values[0, geometry_names.index(name)] = value
+    flow_names = event_flow_feature_names()
+    flow_values = np.zeros((1, len(flow_names)), dtype=np.float32)
+    for window in (5, 15, 30, 60):
+        flow_values[0, flow_names.index(f"order_signed_volume_per_event_{window}")] = 3.0
+        flow_values[0, flow_names.index(f"trade_signed_volume_per_event_{window}")] = -1.0
+        flow_values[0, flow_names.index(f"order_event_count_per_second_{window}")] = 2.0
+        flow_values[0, flow_names.index(f"trade_event_count_per_second_{window}")] = 1.0
+    common = dict(sample_id=np.array([7]), month=np.array([3]), target=np.array([0.2]))
+    frame = build_optiver_interactions(
+        GeometryFrame(values=geometry_values, feature_names=geometry_names, **common),
+        EventFlowFrame(values=flow_values, feature_names=flow_names, **common),
+    )
+    assert len(frame.feature_names) == M04_FEATURE_COUNT == 24
+    assert frame.feature_names == optiver_interaction_feature_names() == (
+        "triplet_imbalance_bid1_share_bid2_share_ask1_share",
+        "triplet_imbalance_bid1_share_bid2_share_ask2_share",
+        "triplet_imbalance_ask1_share_ask2_share_bid1_share",
+        "triplet_imbalance_ask1_share_ask2_share_bid2_share",
+        "triplet_imbalance_l1_imbalance_l2_imbalance_book_imbalance",
+        "triplet_imbalance_bid_gap_ask_gap_l1_l2_volume_ratio",
+        "urgency_relative_spread_l1_imbalance",
+        "urgency_relative_spread_l2_imbalance",
+        "urgency_relative_spread_book_imbalance",
+        "urgency_relative_spread_order_pressure_5",
+        "urgency_relative_spread_trade_pressure_5",
+        "urgency_relative_spread_order_trade_agreement_5",
+        "depth_pressure_l1_imbalance_bid_gap",
+        "depth_pressure_l2_imbalance_ask_gap",
+        "depth_pressure_book_imbalance_mean_gap",
+        "depth_pressure_shape_asymmetry_book_imbalance",
+        "flow_combined_pressure_relative_spread_5",
+        "flow_combined_pressure_log_event_intensity_5",
+        "flow_combined_pressure_relative_spread_15",
+        "flow_combined_pressure_log_event_intensity_15",
+        "flow_combined_pressure_relative_spread_30",
+        "flow_combined_pressure_log_event_intensity_30",
+        "flow_combined_pressure_relative_spread_60",
+        "flow_combined_pressure_log_event_intensity_60",
+    )
+    assert np.isfinite(frame.values).all()
+    values = dict(zip(frame.feature_names, frame.values[0]))
+    assert values["triplet_imbalance_bid1_share_bid2_share_ask1_share"] == pytest.approx(0.5)
+    assert values["depth_pressure_l1_imbalance_bid_gap"] == pytest.approx(1.0 / 7.0)
+    combined = np.arcsinh(3.0) + np.arcsinh(-1.0)
+    assert values["flow_combined_pressure_relative_spread_5"] == pytest.approx(combined * 3.0)
+    assert values["flow_combined_pressure_log_event_intensity_5"] == pytest.approx(
+        combined * np.log1p(3.0)
+    )
+
+
+def test_m04_requires_exact_m02_m01a_alignment() -> None:
+    geometry_names = geometry_feature_names()
+    flow_names = event_flow_feature_names()
+    geometry = GeometryFrame(
+        np.array([1, 2]), np.array([0, 0]), np.array([0.1, 0.2]),
+        np.zeros((2, len(geometry_names)), dtype=np.float32), geometry_names,
+    )
+    flow = EventFlowFrame(
+        np.array([2, 1]), np.array([0, 0]), np.array([0.2, 0.1]),
+        np.zeros((2, len(flow_names)), dtype=np.float32), flow_names,
+    )
+    with pytest.raises(ValueError, match="exactly aligned"):
+        build_optiver_interactions(geometry, flow)
+
+
+def test_m04_transforms_keep_extreme_inputs_finite() -> None:
+    geometry_names = geometry_feature_names()
+    geometry_values = np.zeros((1, len(geometry_names)), dtype=np.float32)
+    for name in (
+        "lob_bid1_depth_share", "lob_bid2_depth_share",
+        "lob_ask1_depth_share", "lob_ask2_depth_share",
+        "lob_bid_depth_share", "lob_ask_depth_share",
+    ):
+        geometry_values[0, geometry_names.index(name)] = 0.25
+    geometry_values[0, geometry_names.index("lob_bid_l1_l2_gap")] = 2.0
+    geometry_values[0, geometry_names.index("lob_ask_l1_l2_gap")] = 3.0
+    flow_names = event_flow_feature_names()
+    flow_values = np.zeros((1, len(flow_names)), dtype=np.float32)
+    for window in (5, 15, 30, 60):
+        flow_values[0, flow_names.index(f"order_signed_volume_per_event_{window}")] = 1e30
+        flow_values[0, flow_names.index(f"trade_signed_volume_per_event_{window}")] = -1e30
+        flow_values[0, flow_names.index(f"order_event_count_per_second_{window}")] = 1e30
+    common = dict(sample_id=np.array([1]), month=np.array([0]), target=np.array([0.0]))
+    result = build_optiver_interactions(
+        GeometryFrame(values=geometry_values, feature_names=geometry_names, **common),
+        EventFlowFrame(values=flow_values, feature_names=flow_names, **common),
+    )
+    assert np.isfinite(result.values).all()
+
+
+def test_run_m04_cli_uses_frozen_residual_config() -> None:
+    args = build_parser().parse_args([
+        "run-m04", "--canonical-oof", "canonical.npz",
+        "--m02-features", "geometry.parquet",
+        "--m01a-features", "event-flow.parquet",
+        "--baseline-root", "baseline", "--output-root", "output",
+        "--outer", "PSEUDO",
+    ])
+    assert args.config.as_posix() == "configs/m01-a.json"
 
 
 def test_m02_streaming_quote_reader_keeps_cross_batch_pending_sample(tmp_path, monkeypatch) -> None:

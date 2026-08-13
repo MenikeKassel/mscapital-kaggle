@@ -17,6 +17,19 @@ from .revol_lite import (
     context_feature_names,
     revol_lite_feature_names,
 )
+from .geometry_temporal import (
+    build_geometry_temporal_file,
+    geometry_temporal_feature_names,
+    temporal_feature_names,
+    temporal_features_for_rows,
+)
+from .path_signature import (
+    build_path_signature_arrays,
+    build_path_signature_file,
+    depth2_path_signature,
+    path_signature_feature_names,
+    path_signature_features_for_rows,
+)
 
 __all__ = [
     "build_lob_geometry",
@@ -37,4 +50,13 @@ __all__ = [
     "build_revol_lite_file",
     "context_feature_names",
     "revol_lite_feature_names",
+    "build_geometry_temporal_file",
+    "geometry_temporal_feature_names",
+    "temporal_feature_names",
+    "temporal_features_for_rows",
+    "build_path_signature_arrays",
+    "build_path_signature_file",
+    "depth2_path_signature",
+    "path_signature_feature_names",
+    "path_signature_features_for_rows",
 ]
