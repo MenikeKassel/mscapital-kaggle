@@ -57,7 +57,7 @@ explicit experiment decision.
 
 ## Reproducibility
 
-- M01-A code/config revision: `5e93f3f`
+- M01-A code/config revision: `3dca62f`
 - Event Flow feature hash: `b77a0a2a40418e40d28a0ce16e111649887f9b459a36cf7d76a71656ce2a2455`
 - Metric: uncentered cosine similarity
 - Alpha grid: `0.00-0.30`, step `0.01`
