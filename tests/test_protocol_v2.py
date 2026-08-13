@@ -8,7 +8,12 @@ import pytest
 from mscapital.artifacts import ExperimentManifest
 from mscapital.cli import build_parser, main
 from mscapital.ensemble import EnsembleCalibrator, NestedBlendFold, evaluate_nested_blend
-from mscapital.features.lob_geometry import lob_geometry_row
+from mscapital.features.lob_geometry import (
+    _latest_quotes_stream,
+    build_lob_geometry_file,
+    geometry_feature_names,
+    lob_geometry_row,
+)
 from mscapital.features.ofi import (
     build_m01_features,
     quote_ofi,
@@ -41,6 +46,7 @@ from mscapital.models.m01a import (
     fit_m01a_selection,
     select_alpha,
 )
+from mscapital.models.m02 import GeometryFrame
 from mscapital.models.residual_catboost import CatBoostResidualRegressor
 
 
@@ -51,6 +57,56 @@ def test_uncentered_metric_is_not_centered_and_handles_zero() -> None:
     assert cosine_uncentered(np.zeros(3), target) == 0.0
     with pytest.raises(ValueError):
         cosine_uncentered([1.0], [1.0, 2.0])
+
+
+def test_m02_geometry_frame_requires_finite_aligned_matrix() -> None:
+    names = geometry_feature_names()
+    frame = GeometryFrame(
+        np.array([1, 2]), np.array([0, 0]), np.array([0.1, 0.2]),
+        np.zeros((2, len(names)), dtype=np.float32), names,
+    )
+    frame.validate()
+    bad = GeometryFrame(
+        frame.sample_id, frame.month, frame.target,
+        frame.values.copy(), names,
+    )
+    bad.values[0, 0] = np.nan
+    with pytest.raises(ValueError, match="finite"):
+        bad.validate()
+
+
+def test_m02_streaming_quote_reader_keeps_cross_batch_pending_sample(tmp_path, monkeypatch) -> None:
+    """A pending sample continued in the next Arrow batch must not be lost."""
+    import pyarrow as pa
+
+    columns = {
+        "sample_id": np.array([5, 5, 7], dtype=np.int64),
+        "seconds_before_predict": np.array([3.0, 1.0, 2.0]),
+        "bid_price_1": np.array([1.0, 2.0, 3.0]),
+        "bid_volume_1": np.array([1, 2, 3], dtype=np.int32),
+        "ask_price_1": np.array([2.0, 3.0, 4.0]),
+        "ask_volume_1": np.array([1, 2, 3], dtype=np.int32),
+        "bid_price_2": np.array([0.5, 1.5, 2.5]),
+        "bid_volume_2": np.array([1, 2, 3], dtype=np.int32),
+        "ask_price_2": np.array([2.5, 3.5, 4.5]),
+        "ask_volume_2": np.array([1, 2, 3], dtype=np.int32),
+    }
+    first = pa.RecordBatch.from_pydict({name: pa.array(value[:2]) for name, value in columns.items()})
+    second = pa.RecordBatch.from_pydict({name: pa.array(value[1:]) for name, value in columns.items()})
+
+    class _Scanner:
+        def to_batches(self):
+            return iter((first, second))
+
+    class _Dataset:
+        def scanner(self, **_kwargs):
+            return _Scanner()
+
+    import pyarrow.dataset as dataset_module
+    monkeypatch.setattr(dataset_module, "dataset", lambda _path, **_kwargs: _Dataset())
+    result = _latest_quotes_stream(tmp_path / "ignored.feather")
+    assert result["sample_id"].tolist() == [5, 7]
+    assert result["bid_price_1"].tolist() == [2.0, 3.0]
 
 
 def test_nested_splits_have_no_inner_or_outer_overlap() -> None:
@@ -359,6 +415,40 @@ def test_lob_geometry_excludes_l1_relative_price_and_is_invariant() -> None:
     assert "lob_bid1_rel_mid_spread" not in row
     assert "lob_ask1_rel_mid_spread" not in row
     assert row["lob_shape_asymmetry"] != 0.0
+
+
+def test_m02_geometry_file_uses_latest_quote_and_l1_l2_only(tmp_path) -> None:
+    pa = pytest.importorskip("pyarrow")
+    import pyarrow.feather as feather
+    import pyarrow.parquet as parquet
+    market = pa.table({
+        "sample_id": np.array([0, 0, 1, 1], dtype=np.int32),
+        "seconds_before_predict": np.array([10.0, 2.0, 8.0, 1.0], dtype=np.float32),
+        "bid_price_1": np.array([99.0, 100.0, 199.0, 200.0], dtype=np.float32),
+        "bid_volume_1": np.array([1, 10, 2, 20], dtype=np.int32),
+        "ask_price_1": np.array([101.0, 102.0, 201.0, 202.0], dtype=np.float32),
+        "ask_volume_1": np.array([2, 20, 3, 30], dtype=np.int32),
+        "bid_price_2": np.array([98.0, 99.0, 198.0, 199.0], dtype=np.float32),
+        "bid_volume_2": np.array([3, 30, 4, 40], dtype=np.int32),
+        "ask_price_2": np.array([102.0, 103.0, 202.0, 203.0], dtype=np.float32),
+        "ask_volume_2": np.array([4, 40, 5, 50], dtype=np.int32),
+    })
+    labels = pa.table({
+        "sample_id": np.array([0, 1], dtype=np.int32),
+        "month": np.array([0, 1], dtype=np.int16),
+        "target": np.array([0.1, -0.2], dtype=np.float32),
+    })
+    market_path, labels_path = tmp_path / "market.feather", tmp_path / "label.feather"
+    output = tmp_path / "geometry.parquet"
+    feather.write_feather(market, market_path)
+    feather.write_feather(labels, labels_path)
+    result = build_lob_geometry_file(market_path, labels_path, output)
+    assert result["rows"] == 2
+    assert tuple(result["feature_names"]) == geometry_feature_names()
+    table = parquet.read_table(output)
+    # The newest quote has the smallest seconds_before_predict.
+    assert float(table["lob_bid1_depth_share"][0].as_py()) > 0.0
+    assert all("lob_bid1_rel_mid_spread" not in name for name in result["feature_names"])
 
 
 def test_canonical_oof_is_unique_and_outer_beta_uses_only_visible_history() -> None:
