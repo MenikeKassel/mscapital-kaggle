@@ -14,6 +14,7 @@ from .config import config_hash, load_config
 from .features.lob_geometry import build_lob_geometry, build_lob_geometry_file
 from .features.geometry_temporal import build_geometry_temporal_file
 from .features.event_flow import build_event_flow_file
+from .features.path_signature import build_path_signature_file
 from .features.ofi import build_m01_features, select_m01_stage
 from .metrics import cosine_uncentered, normalize_prediction
 from .diagnostics import prediction_diagnostics, drift_report
@@ -472,6 +473,39 @@ def _cmd_summarize_m02t(args: argparse.Namespace) -> None:
     print(json.dumps(result, indent=2))
 
 
+def _cmd_build_path_signature(args: argparse.Namespace) -> None:
+    result = build_path_signature_file(
+        args.market, args.order, args.transaction, args.labels, args.output
+    )
+    print(json.dumps(result, indent=2))
+
+
+def _cmd_run_m03(args: argparse.Namespace) -> None:
+    from .models.m01a import M01AConfig
+    from .models.m03 import load_path_signature_frame, run_m03_outer
+
+    canonical = load_canonical_oof_artifact(args.canonical_oof)
+    features = load_path_signature_frame(args.features)
+    config = M01AConfig.from_mapping(_load_json_mapping(args.config))
+    outers = ("PSEUDO", "H2", "T3", "T4") if args.outer == "ALL" else (args.outer,)
+    result = [
+        run_m03_outer(
+            canonical, features, args.baseline_root, args.output_root, outer, config=config
+        )
+        for outer in outers
+    ]
+    print(json.dumps(result, indent=2))
+
+
+def _cmd_summarize_m03(args: argparse.Namespace) -> None:
+    from .models.m03 import summarize_m03
+
+    result = summarize_m03(args.artifact_root)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    print(json.dumps(result, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mscapital")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -643,6 +677,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--m02-base-root", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.set_defaults(func=_cmd_summarize_m02t)
+    p = sub.add_parser("build-path-signature", help="stream fixed M03 depth-2 path signatures")
+    p.add_argument("--market", type=Path, required=True)
+    p.add_argument("--order", type=Path, required=True)
+    p.add_argument("--transaction", type=Path, required=True)
+    p.add_argument("--labels", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
+    p.set_defaults(func=_cmd_build_path_signature)
+    p = sub.add_parser("run-m03", help="train and replay M03 path-signature residual alpha")
+    p.add_argument("--canonical-oof", type=Path, required=True)
+    p.add_argument("--features", type=Path, required=True)
+    p.add_argument("--baseline-root", type=Path, required=True)
+    p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument("--config", type=Path, default=Path("configs/m01-a.json"))
+    p.add_argument("--outer", choices=("PSEUDO", "H2", "T3", "T4", "ALL"), required=True)
+    p.set_defaults(func=_cmd_run_m03)
+    p = sub.add_parser("summarize-m03", help="summarize the four-fold M03 gate")
+    p.add_argument("--artifact-root", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
+    p.set_defaults(func=_cmd_summarize_m03)
     p = sub.add_parser("run-alpha", help="combine an RMS baseline with a residual prediction")
     p.add_argument("--baseline", type=Path, required=True)
     p.add_argument("--residual", type=Path, required=True)

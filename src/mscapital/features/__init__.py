@@ -15,6 +15,13 @@ from .geometry_temporal import (
     temporal_feature_names,
     temporal_features_for_rows,
 )
+from .path_signature import (
+    build_path_signature_arrays,
+    build_path_signature_file,
+    depth2_path_signature,
+    path_signature_feature_names,
+    path_signature_features_for_rows,
+)
 
 __all__ = [
     "build_lob_geometry",
@@ -33,4 +40,9 @@ __all__ = [
     "geometry_temporal_feature_names",
     "temporal_feature_names",
     "temporal_features_for_rows",
+    "build_path_signature_arrays",
+    "build_path_signature_file",
+    "depth2_path_signature",
+    "path_signature_feature_names",
+    "path_signature_features_for_rows",
 ]
