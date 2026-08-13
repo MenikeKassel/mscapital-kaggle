@@ -30,6 +30,15 @@ All four predictions are finite, all four outer folds are positive, and all
 drift ratios are within the configured range. The gate fails because PSEUDO
 improvement is below `+0.0015`.
 
+| Outer | Prediction std | Std ratio | Absolute-p99 ratio | Baseline correlation |
+|---|---:|---:|---:|---:|
+| PSEUDO | 0.968160 | 0.961147 | 0.918279 | 0.998082 |
+| H2 | 1.034124 | 1.031819 | 1.019540 | 0.999816 |
+| T3 | 1.015425 | 1.004687 | 1.014820 | 0.998408 |
+| T4 | 1.137102 | 1.125076 | 1.174140 | 0.998665 |
+
+All ratios remain inside the frozen `[0.67, 1.50]` and `[0.50, 2.00]` bounds.
+
 Decision: M02-base and M02-T are recorded as positive-but-insufficient
 representation results. The M02 family is closed; no further Geometry window
 or lead-lag variants will be run. The next method family is M03 depth-2 Path
