@@ -154,6 +154,15 @@ def test_freeze_production_scales_uses_exact_canonical_m51_70(tmp_path: Path):
     _write_artifacts(table, table=True)
     calibrate_clean_baseline(realmlp, table, tmp_path / "calibration")
     calibration_root = tmp_path / "calibration" / "clean-baseline-v2"
+    calibration_path = calibration_root / "clean_baseline_v2_report.json"
+    calibration = json.loads(calibration_path.read_text(encoding="utf-8"))
+    calibration["production"].update(
+        {
+            "method": "rms", "table_weight": 0.37,
+            "selected_method_mode": "rms", "selected_weight_median": 0.37,
+        }
+    )
+    calibration_path.write_text(json.dumps(calibration), encoding="utf-8")
     report = freeze_production_scales(*paths, calibration_root)
     expected_rms_r = np.sqrt(np.mean(np.square(np.r_[y51 * 2.0, y61 * 4.0])))
     expected_rms_t = np.sqrt(np.mean(np.square(np.r_[y51 * 0.5, y61 * 0.25])))
@@ -195,12 +204,36 @@ def test_freeze_rejects_wrong_canonical_manifest(tmp_path: Path):
             {
                 "strict_nested_gate": {"passed": True},
                 "production_rule_stress_gate": {"passed": True},
+                "production": {
+                    "method": "rms", "table_weight": 0.37,
+                    "selected_method_mode": "rms", "selected_weight_median": 0.37,
+                },
             }
         ),
         encoding="utf-8",
     )
     with np.testing.assert_raises_regex(ValueError, "experiment_id"):
         freeze_production_scales(directory, directory, directory, directory, calibration)
+
+
+def test_freeze_rejects_rule_that_did_not_pass_its_stress_gate(tmp_path: Path):
+    calibration = tmp_path / "calibration"
+    calibration.mkdir()
+    (calibration / "clean_baseline_v2_report.json").write_text(
+        json.dumps(
+            {
+                "strict_nested_gate": {"passed": True},
+                "production_rule_stress_gate": {"passed": True},
+                "production": {
+                    "method": "rms", "table_weight": 0.50,
+                    "selected_method_mode": "rms", "selected_weight_median": 0.37,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    with np.testing.assert_raises_regex(ValueError, "frozen at 0.37"):
+        freeze_production_scales(tmp_path, tmp_path, tmp_path, tmp_path, calibration)
 
 
 def test_production_rule_schema_rejects_bad_components():

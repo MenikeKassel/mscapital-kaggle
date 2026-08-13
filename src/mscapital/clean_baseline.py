@@ -369,7 +369,6 @@ def freeze_production_scales(
     calibration_root: str | Path,
     *,
     experiment_id: str = "clean-baseline-v2",
-    table_weight: float = PRODUCTION_TABLE_WEIGHT,
 ) -> dict[str, Any]:
     """Fit the fixed production RMS scales on canonical rolling OOF m51-70."""
 
@@ -382,6 +381,16 @@ def freeze_production_scales(
         raise ValueError("strict nested calibration gate must pass before freezing")
     if not calibration_report.get("production_rule_stress_gate", {}).get("passed"):
         raise ValueError("production rule stress gate must pass before freezing")
+    calibrated_rule = calibration_report.get("production") or {}
+    if calibrated_rule.get("method") != PRODUCTION_METHOD:
+        raise ValueError("calibration production method must be frozen RMS")
+    if calibrated_rule.get("table_weight") != PRODUCTION_TABLE_WEIGHT:
+        raise ValueError("calibration production Table weight must be frozen at 0.37")
+    if calibrated_rule.get("selected_method_mode") != PRODUCTION_METHOD:
+        raise ValueError("inner-selected method mode must be RMS before freezing")
+    if calibrated_rule.get("selected_weight_median") != PRODUCTION_TABLE_WEIGHT:
+        raise ValueError("inner-selected Table-weight median must equal 0.37 before freezing")
+    table_weight = PRODUCTION_TABLE_WEIGHT
 
     blocks = []
     source_manifests: dict[str, dict[str, Any]] = {}
@@ -551,6 +560,11 @@ def freeze_production_scales(
             "production_schema_replay": production_replay,
         }
     )
+    calibration_report.pop("result_hash", None)
+    calibration_payload = json.dumps(
+        calibration_report, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    calibration_report["result_hash"] = hashlib.sha256(calibration_payload).hexdigest()
     calibration_report_path.write_text(
         json.dumps(calibration_report, indent=2), encoding="utf-8"
     )
