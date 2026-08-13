@@ -22,6 +22,14 @@ from .path_signature import (
     path_signature_feature_names,
     path_signature_features_for_rows,
 )
+from .revol_lite import (
+    CONTEXT_FEATURES,
+    CONTEXT_STATE_FEATURES,
+    WINDOWS,
+    build_revol_lite_file,
+    context_feature_names,
+    revol_lite_feature_names,
+)
 
 __all__ = [
     "build_lob_geometry",
@@ -45,4 +53,11 @@ __all__ = [
     "depth2_path_signature",
     "path_signature_feature_names",
     "path_signature_features_for_rows",
+
+"CONTEXT_FEATURES",
+    "CONTEXT_STATE_FEATURES",
+    "WINDOWS",
+    "build_revol_lite_file",
+    "context_feature_names",
+    "revol_lite_feature_names",
 ]
