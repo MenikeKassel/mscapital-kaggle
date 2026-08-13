@@ -206,14 +206,15 @@ CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和。
 - Table 与 C2 30-epoch RealMLP outer corr 为 `0.81-0.85`，但 RealMLP std 是 Table 的 `34-42x`；C4 必须在 inner 上比较 raw/std/RMS。
 - 详见 `docs/c3-clean-table-results.md`；未创建 Kaggle competition submission。
 
-## Protocol-v2 C4 Calibration Selection (2026-08-13)
+## Protocol-v2 C4 Clean Baseline v2 Frozen (2026-08-13)
 
 - Inner-only raw/std/RMS × `0.00-1.00` 校准，fold-adaptive outer: **0.142649 / 0.141762 / 0.143515 / 0.156924**。
-- 生产方法/权重选择为 `0.63×RMS(30ep RealMLP) + 0.37×RMS(Clean Table)`。
+- 生产规则冻结为 `0.63×RMS(30ep RealMLP) + 0.37×RMS(Clean Table)`。
 - 各折严格 inner-only 校准均全正，描述性均值 **0.146212**，相对 RealMLP 平均 **+0.005026**，通过 `+0.0005` 门禁。
 - 统一生产权重是四个 inner 选择的后验聚合；因 T3/T4 inner m41-50 与 PSEUDO outer 重叠，禁止把统一权重回评 PSEUDO 并声称是无泄漏 outer 分数。
-- 数值 scale 不从 outer/test 拟合；按冻结规则等待 canonical rolling OOF m51-70 估计。
-- method/weight/scale source 已锁定，但 Clean Baseline v2 尚未完成冻结：须先实产 canonical rolling OOF m51-70 并拟合两组件 RMS scale。详见 `docs/c4-clean-baseline-results.md`。
+- 数值 scale 不从 outer/test 拟合；canonical rolling OOF m51-70 共 353,246 行，融合分数 **0.149173**。
+- 生产 RMS scale: RealMLP `0.01481242584`，Table `0.0003505723161`；m61-70 严格历史 block 的两组件分数为 `0.147951 / 0.150578`，冻结融合为 `0.154614`。
+- method/weight/scales/component order/scale source 与最终 prediction schema 全部冻结；后续 Alpha 不得回改。详见 `docs/c4-clean-baseline-results.md`。
 
 ## 负面结果
 

@@ -1,6 +1,6 @@
 {
   "protocol": "protocol-v2",
-  "status": "calibration_selected_scales_pending",
+  "status": "frozen",
   "components": {
     "realmlp": "c2-realmlp-epochs30",
     "table": "clean-table-v2"
@@ -12,7 +12,13 @@
     "weight_step": 0.01,
     "production_method": "rms",
     "production_table_weight": 0.37,
-    "production_scale_source": "canonical_rolling_oof_months_51_70"
+    "production_scale_source": "canonical_rolling_oof_months_51_70",
+    "production_scale_realmlp": 0.014812425837302948,
+    "production_scale_table": 0.00035057231611417754,
+    "production_formula": "0.63 * realmlp / scale_realmlp + 0.37 * table / scale_table",
+    "canonical_oof_score": 0.14917332007287812,
+    "canonical_oof_rows": 353246,
+    "canonical_result_hash": "65b9af31e082c2f10a9314af2e8e101067b29ec176c4e6b57d930a2593eac17f"
   },
   "gate": {
     "applies_to": "fold_specific_nested_calibrations",

@@ -21,6 +21,34 @@ METHODS = ("raw", "std", "rms")
 WEIGHT_GRID = np.arange(0.0, 1.0001, 0.01)
 
 
+def apply_production_rule(
+    realmlp_prediction: object,
+    table_prediction: object,
+    *,
+    scale_realmlp: float,
+    scale_table: float,
+    table_weight: float = 0.37,
+) -> np.ndarray:
+    """Apply the frozen Clean Baseline v2 directional prediction schema."""
+
+    realmlp = np.asarray(realmlp_prediction, dtype=np.float64).reshape(-1)
+    table = np.asarray(table_prediction, dtype=np.float64).reshape(-1)
+    if realmlp.shape != table.shape:
+        raise ValueError("RealMLP and Table production predictions must have the same shape")
+    if not np.isfinite(realmlp).all() or not np.isfinite(table).all():
+        raise ValueError("production component predictions must be finite")
+    if not 0.0 <= table_weight <= 1.0:
+        raise ValueError("Table production weight must be in [0, 1]")
+    if not np.isfinite(scale_realmlp) or scale_realmlp <= 0.0:
+        raise ValueError("RealMLP production scale must be positive and finite")
+    if not np.isfinite(scale_table) or scale_table <= 0.0:
+        raise ValueError("Table production scale must be positive and finite")
+    return (
+        (1.0 - table_weight) * realmlp / scale_realmlp
+        + table_weight * table / scale_table
+    )
+
+
 def _load_aligned(
     realmlp_path: Path,
     table_path: Path,
@@ -230,9 +258,12 @@ def freeze_production_scales(
         raise ValueError("RealMLP canonical OOF RMS scale must be positive and finite")
     if not np.isfinite(scale_table) or scale_table <= 0.0:
         raise ValueError("Table canonical OOF RMS scale must be positive and finite")
-    prediction = (
-        (1.0 - table_weight) * realmlp_pred / scale_realmlp
-        + table_weight * table_pred / scale_table
+    prediction = apply_production_rule(
+        realmlp_pred,
+        table_pred,
+        scale_realmlp=scale_realmlp,
+        scale_table=scale_table,
+        table_weight=table_weight,
     )
     score = cosine_uncentered(prediction, target)
     output = Path(output_root) / experiment_id / "production"

@@ -1,6 +1,6 @@
-# C4 Clean Baseline v2 Calibration Selection
+# C4 Clean Baseline v2 Results
 
-C4 nested calibration selection completed on 2026-08-13. It uses
+C4 completed and froze Clean Baseline v2 on 2026-08-13. It uses
 the accepted 30-epoch RealMLP from C2 and Clean Table from C3 without changing
 either component.
 
@@ -27,7 +27,7 @@ The predeclared default gate passes: all four leakage-safe nested outer
 predictions are non-degrading and their mean improvement is greater than
 `+0.0005`.
 
-## Selected production rule
+## Frozen production rule
 
 The production method is the mode of the four inner-selected methods and the
 production Table weight is the median of the four inner-selected weights:
@@ -41,11 +41,31 @@ scored back on PSEUDO as if it were an untouched outer: T3/T4 inner months
 m41-50 overlap the PSEUDO m33-70 outer. Such a cross-fold score would violate
 the explicit ban on calibrating among overlapping stress tests.
 
-Numeric production scales are intentionally not frozen from outer or test
-distributions. They will be fitted once from the canonical rolling OOF m51-70
-segment. The component versions, method, weight, and scale source are selected
-and may not be retuned. Clean Baseline v2 itself remains incomplete until the
-canonical rolling OOF scales are fitted and its production schema is verified.
+Numeric production scales were fitted only from the canonical rolling OOF
+m51-70 segment. T3 supplies the already-completed m51-60 block. A new strictly
+historical `R61_70` split uses inner train 0-50, inner tune 51-60, refit 0-60,
+and predicts 61-70. Both components were trained on Kaggle P100 kernels.
+
+| Canonical block | Rows | RealMLP | Table | Frozen blend |
+|---|---:|---:|---:|---:|
+| m51-60 | 177,542 | 0.139785568 | 0.135453873 | 0.143549307 |
+| m61-70 | 175,704 | 0.147950590 | 0.150577521 | 0.154614249 |
+| concatenated m51-70 | 353,246 | 0.143846440 | 0.143282516 | **0.149173320** |
+
+The frozen RMS scales are:
+
+```text
+scale_realmlp = 0.014812425837302948
+scale_table   = 0.00035057231611417754
+
+prediction = 0.63 * realmlp / scale_realmlp
+           + 0.37 * table   / scale_table
+```
+
+The canonical result hash is
+`65b9af31e082c2f10a9314af2e8e101067b29ec176c4e6b57d930a2593eac17f`.
+Component versions, method, weight, scales, component order, and scale source
+are now frozen. Later alpha experiments may not retune them.
 
 ## Integrity
 
@@ -57,9 +77,14 @@ canonical rolling OOF scales are fitted and its production schema is verified.
   prediction. No cross-fold aggregate is presented as an outer prediction.
 - Tests rewrite outer predictions without changing inner method/weight
   selection and reject any component ID misalignment.
+- The canonical scale builder rejects missing months, duplicate IDs, target
+  misalignment, non-finite predictions, and non-positive scales. The production
+  application function also fixes the component order and validates shape.
+- Formal `R61_70` manifests record refit 0-60, valid 61-70, 175,704 unique
+  samples, finite predictions, and P100 environments. RealMLP was generated at
+  `d295c45`; Table at `7db7341`.
 - No competition submission, prediction array, model weight, token, or private
   data is included in the public repository.
 
-The next stage is canonical rolling OOF production. Clean Baseline v2 freezes
-only after those production scales and the final prediction schema are fixed;
-M01-A follows that boundary.
+Clean Baseline v2 is frozen. The next stage is the remaining canonical rolling
+OOF blocks m21-50 for the residual dataset, followed by M01-A.

@@ -2,7 +2,11 @@ from pathlib import Path
 
 import numpy as np
 
-from mscapital.clean_baseline import calibrate_clean_baseline, freeze_production_scales
+from mscapital.clean_baseline import (
+    apply_production_rule,
+    calibrate_clean_baseline,
+    freeze_production_scales,
+)
 from mscapital.splits import NESTED_SPLITS, TRAINING_SPLITS
 
 
@@ -107,3 +111,15 @@ def test_freeze_production_scales_uses_exact_canonical_m51_70(tmp_path: Path):
     assert report["canonical_oof_score"] == expected_score
     saved = np.load(tmp_path / "out" / "clean-baseline-v2" / "production" / "canonical_scale_predictions.npz")
     assert set(saved["month"]) == set(range(51, 71))
+
+
+def test_production_rule_schema_rejects_bad_components():
+    expected = 0.63 * np.array([1.0, 2.0]) / 2.0 + 0.37 * np.array([3.0, 4.0]) / 4.0
+    actual = apply_production_rule(
+        [1.0, 2.0], [3.0, 4.0], scale_realmlp=2.0, scale_table=4.0
+    )
+    np.testing.assert_allclose(actual, expected)
+    with np.testing.assert_raises_regex(ValueError, "same shape"):
+        apply_production_rule([1.0], [1.0, 2.0], scale_realmlp=1.0, scale_table=1.0)
+    with np.testing.assert_raises_regex(ValueError, "must be finite"):
+        apply_production_rule([np.nan], [1.0], scale_realmlp=1.0, scale_table=1.0)
