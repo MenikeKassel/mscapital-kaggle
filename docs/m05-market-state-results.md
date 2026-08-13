@@ -18,4 +18,4 @@ All predictions were finite and drift checks passed, but only 2/4 folds were
 positive and PSEUDO was below `+0.0015`. M05 is not a candidate for the
 conditional ensemble.
 
-Implementation revision: `3f10422` plus the integrated CLI/replay changes.
+Feature artifact revision: `3f10422`; formal fold runner revision: `6a25d48`.

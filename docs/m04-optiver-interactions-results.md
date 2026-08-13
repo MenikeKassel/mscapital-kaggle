@@ -21,6 +21,6 @@ All four folds were finite and positive, with drift ratios inside the frozen
 bounds. The gate failed because PSEUDO was below `+0.0015`; M04 is not added to
 the conditional ensemble.
 
-Implementation revision: `9b117e3` (formal artifacts were produced from the
-same clean implementation lineage). CatBoost was fixed at 3000 iterations,
+Feature artifact revision: `d45ecfb`; formal fold runner revision: `9b117e3`.
+CatBoost was fixed at 3000 iterations,
 early stopping 200, seed 2026, with the frozen alpha grid.
