@@ -128,6 +128,8 @@ prediction = 0.6 * ens5 + 0.4 * unit(v10)
 
 ### P1：Residualized Dynamics V2
 
+> 方法族与来源标注见 `docs/method-provenance.md`(M01-M06 定义、血缘纠正、arXiv 逐条验证)。
+
 使用 v7 的严格 OOF 预测构造残差目标：
 
 \[
@@ -162,3 +164,11 @@ r=y-\beta\hat y_{v7}
 - 通过门禁后才生成提交候选，不使用 Public LB 连续扫权重。
 
 更详细的实验记录见仓库根目录的 `RESULTS.md`；校准制度见 `docs/calibration.md`。
+
+## 8. 首批新方法真实结果（2026-08-13）
+
+E01 ReVol-lite 已完成四折真实运行：PSEUDO `0.143646991`（相对 frozen baseline `+0.001096651`）、H2 `0.144178045`（`+0.002316052`）、T3 `0.144934229`（`+0.001384921`）、T4 `0.159012794`（`+0.001959693`）。四折虽均为正，但 PSEUDO 未达到预注册 `+0.0015` 门槛，故 E01 基础 gate 与合并后的 E03 gate 均为失败，不晋级提交或融合。
+
+E03 PSEUDO month 33–70 稳定性审计的 positive-month ratio 为 `0.842`，月级 bootstrap 95% CI 为 `[+0.000599579,+0.001669554]`，top-3 positive-month concentration 为 `0.265`；稳定性附加条件通过。
+
+E02 Reconditionor-lite 已通过：HistGradientBoosting pooled residual cosine `0.013223925`，bootstrap 95% CI `[+0.008356664,+0.018521100]`，4/4 折为正，最差折 `+0.009721095`。该结果只开放未来 E05 learned retrieval 注册，不形成提交候选。完整 artifact 与口径见 `docs/e01-e02-e03-results.md`。
