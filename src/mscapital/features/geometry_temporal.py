@@ -163,7 +163,28 @@ def temporal_features_for_rows(market: Mapping[str, object]) -> np.ndarray:
     if len(lengths) != 1:
         raise ValueError("temporal market columns must have equal lengths")
     path, covered, updates = _asof_path(values)
-    result = np.concatenate([_window_features(path, covered, updates if window == 60 else int(np.sum((values["seconds_before_predict"] >= 0) & (values["seconds_before_predict"] <= window))), window) for window in WINDOWS])
+    seconds = values["seconds_before_predict"]
+    usable = _valid_quote(values)
+    result = np.concatenate(
+        [
+            _window_features(
+                path,
+                covered,
+                updates
+                if window == 60
+                else int(
+                    np.sum(
+                        usable
+                        & np.isfinite(seconds)
+                        & (seconds >= 0.0)
+                        & (seconds <= window)
+                    )
+                ),
+                window,
+            )
+            for window in WINDOWS
+        ]
+    )
     if not np.isfinite(result).all():
         raise ValueError("temporal features must be finite")
     return result
