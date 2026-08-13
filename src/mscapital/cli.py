@@ -472,6 +472,37 @@ def _cmd_summarize_m02t(args: argparse.Namespace) -> None:
     print(json.dumps(result, indent=2))
 
 
+def _cmd_run_m04(args: argparse.Namespace) -> None:
+    from .features.optiver_interactions import build_optiver_interactions
+    from .models.m01a import M01AConfig, load_event_flow_frame
+    from .models.m02 import load_geometry_frame
+    from .models.m04 import run_m04_outer
+
+    canonical = load_canonical_oof_artifact(args.canonical_oof)
+    geometry = load_geometry_frame(args.m02_features)
+    event_flow = load_event_flow_frame(args.m01a_features)
+    features = build_optiver_interactions(geometry, event_flow)
+    config = M01AConfig.from_mapping(_load_json_mapping(args.config))
+    outers = ("PSEUDO", "H2", "T3", "T4") if args.outer == "ALL" else (args.outer,)
+    result = [
+        run_m04_outer(
+            canonical, features, args.baseline_root, args.output_root, outer,
+            config=config,
+        )
+        for outer in outers
+    ]
+    print(json.dumps(result, indent=2))
+
+
+def _cmd_summarize_m04(args: argparse.Namespace) -> None:
+    from .models.m04 import summarize_m04
+
+    result = summarize_m04(args.artifact_root)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    print(json.dumps(result, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mscapital")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -643,6 +674,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--m02-base-root", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.set_defaults(func=_cmd_summarize_m02t)
+    p = sub.add_parser("run-m04", help="train and replay the M04 Optiver Interaction Family")
+    p.add_argument("--canonical-oof", type=Path, required=True)
+    p.add_argument("--m02-features", type=Path, required=True)
+    p.add_argument("--m01a-features", type=Path, required=True)
+    p.add_argument("--baseline-root", type=Path, required=True)
+    p.add_argument("--output-root", type=Path, required=True)
+    p.add_argument("--config", type=Path, default=Path("configs/m01-a.json"))
+    p.add_argument("--outer", choices=("PSEUDO", "H2", "T3", "T4", "ALL"), required=True)
+    p.set_defaults(func=_cmd_run_m04)
+    p = sub.add_parser("summarize-m04", help="apply the four-fold M04 candidate gate")
+    p.add_argument("--artifact-root", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
+    p.set_defaults(func=_cmd_summarize_m04)
     p = sub.add_parser("run-alpha", help="combine an RMS baseline with a residual prediction")
     p.add_argument("--baseline", type=Path, required=True)
     p.add_argument("--residual", type=Path, required=True)
