@@ -291,7 +291,7 @@ def select_alpha(
         "baseline_score": cosine_uncentered(base_n, y),
         "baseline_rms": base_rms,
         "residual_rms": res_rms,
-        "scores": {float(a): float(s) for a, s in zip(alpha_grid, scores)},
+        "scores": {str(float(a)): float(s) for a, s in zip(alpha_grid, scores)},
     }
 
 

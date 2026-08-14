@@ -9,6 +9,7 @@
 |---|---|
 | [plan-v1.8.0.md](./plan-v1.8.0.md) | **当前方案 (唯一 current source of truth)** — v1.8.0: GPT1 四论 + GPT2 一论吸收 (条件化/创新信息收敛) + P5-02M/B-lite v2/P6-04 合并队列 |
 | [EXPERIMENT_SUMMARY.md](./EXPERIMENT_SUMMARY.md) | 实验总览汇总 (2026-08-14) — 结果台账 |
+| [exploration-report.md](./exploration-report.md) | 探索全景报告 (2026-08-14) — 方法/原理/效果/失败原因, 覆盖 07-07 起全部尝试 |
 | [data-generation-structure.md](./data-generation-structure.md) | 四文件数据生成结构取证 + 最像比赛 (TATC/DRW) + 最优方案 (2026-08-14) |
 | [calibration.md](./calibration.md) | CV/PSEUDO/LB 校准表 |
 | [protocol-v2.md](./protocol-v2.md) | Protocol-v2 残差验证管线 |

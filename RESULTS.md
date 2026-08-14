@@ -217,6 +217,19 @@ CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和。
 - 生产 RMS scale: RealMLP `0.01481242584`，Table `0.0003505723161`；m61-70 严格历史 block 的两组件分数为 `0.147951 / 0.150578`，冻结融合为 `0.154614`。
 - method/weight/scales/component order/scale source 与最终 prediction schema 全部冻结；后续 Alpha 不得回改。详见 `docs/c4-clean-baseline-results.md`。
 
+## P6R 阶段 (2026-08-14, Retrieval-Conditioned Residual Alpha)
+
+### P6R-00 Retrieval Residual Mean ✅ 完成（门禁未过 → KILL retrieval route）
+
+- 设计: E02 11 context 特征为状态表示，canonical OOF (21-70) 严格时序 KNN（month<query 断言），检索残差均值 r̂，y_hat = RMS(y0)+α·RMS(r̂)，α 仅 tune 月选择。预注册 8 候选 = K{64,128,256,512} × {euclidean,cosine}，零追加。
+- **32/32 候选×折 Δc4 > 0（无一转负），最大 PSEUDO Δ = +0.000588 (cosine_K512) = gate +0.0015 的 39%**
+- corr(r̂,r) = +0.004~+0.010（残差可预测性真实但极弱）；corr(r̂,y0) ≈ 0（正交 ✓）；normalized MSE 全负（与 E02 同）
+- **门禁失败**: 无候选同时满足 bootstrap CI 下界>0 与 α≥0.10（PSEUDO cosine_K512 CI=[−0.00013,+0.00128]；α 几乎全卡网格下界 0.05）
+- 邻居质量健康（月份熵 3.24/3.91、平均覆盖 27/50 月）→ 问题不在检索机制，在"相似状态的残差均值本身预测力弱"
+- **科学结论**: E02 的窗口内 residual cosine 0.013 不可变现为跨月预测增量 → "残差可解释性 ≠ 残差可预测增量"；与 P4-06A/P5-02I probe/P5-03 负面链第 5 个独立确认
+- 推荐: KILL retrieval prediction route；可选终裁 = P6R-01 Local vs Global Ridge（需用户拍板）
+- 详见 `docs/p6r_experiment_report.md`
+
 ## 负面结果
 
 | ID | 实验 | 结果 | 教训 |

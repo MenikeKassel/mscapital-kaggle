@@ -391,7 +391,9 @@ def main() -> None:
         for key, mets in results.items():
             if key in ("v2_capped", "beta1_variant"):
                 continue
-            fold_rows.append(mets)
+            fold_rows.append(
+                {k: v for k, v in mets.items() if v is None or isinstance(v, (int, float, str, bool))}
+            )
         config_keys = [k for k in results if not k.startswith(("v2_", "beta1"))]
         best = max(config_keys, key=lambda k: results[k]["tune_score"])
         print(f"[P6R-00] outer={outer} done: tune-best={best} delta_c4={results[best]['delta_c4']:+.6f}", flush=True)
