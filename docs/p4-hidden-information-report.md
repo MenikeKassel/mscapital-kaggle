@@ -334,3 +334,15 @@ P4-01a 成功     → 研究 600s long-context information extraction (主线!)
 4. cosine 模型在高活动样本更强 → 解释了 LB142 在高活动样本偏正的行为
 
 **结论: "算法差" 假设获得直接证据 — 训练目标错配是 0.135 天花板的真实组成部分**
+
+---
+
+# 13. P4-08B 生产化 (进行中)
+
+**关键发现 (审计生产 loss)**: 生产 RealMLP 的 `lambda_cos = 0.01` (1%!) —— 名义混合 loss, 实际 = MSE 训练。
+LB142 v10 的 lambda_cos = 0.05 (5x), v9 grid = 纯 cosine。**我们的 objective 错配是配置层面的, 不是架构限制。**
+
+**执行**: `48b_realmlp_cosine_prod.py` — 唯一改动 `lambda_cos: 0.01 -> 1.0` (cos 项 ~1 量级 vs MSE ~1e-5, 等效纯 cosine), 全量 0-70 月 30 epochs 训练 → test 预测 `realmlp_cosine_test_pred.npz`。
+生产 cos 为 uncentered (LB 指标精确形式), 同步跑 OOF 验证 (p4_08a_unc.py) 确认 uncentered 形态同样过门禁。
+
+**待办**: 融合 v7/v8b → 多 α 版本 submission → 用户挑选提交
