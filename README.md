@@ -30,13 +30,19 @@ Kaggle 社区赛的个人研究仓库。任务是根据高频行情（market 600
 - **market 600s 序列 = 第二套正交 alpha**：MSE 无信号但 cosine 臂 corr(y)=+0.086、corr(market,v7)=0.49（P5-01）；手工聚合形式无信号（34 特征 −0.0002、P4-06A 残差链断）→ 信息以序列形式存在。
 - 月漂移存在但不可预测（P4-05 决定性负结果）；600s 长上下文解释 LB142 分歧但不解释 y 残差（P4-06A 链条断裂）。
 
-## 当前研究路线（plan-v1.4.0, GPT 评审吸收）
+## 当前研究路线（plan-v1.8.0 — GPT1 四论 + GPT2 一论吸收）
 
-1. **P5-02（S 主线）**：frozen market encoder（200 步 × 13ch, cosine, 小 Conv1D）→ 32d latent → 拼 152 特征进 RealMLP
-2. **P5-02B（S 新方向）**：600s context × 60s event 相对/交互特征
-3. **P5-03（S 修正版）**：cosine 序列模型 × 残差目标 r = y − β·v7（聚合版已判死）
-4. P5-04 MLPLOB / P5-05 冻结融合（41-50 选权重, 51-70 冻结）
-5. 停止：TCN 调参 / Transformer / 152 特征 cosine 变体 / RealMLP 搜索 / 换皮 / calibration / ensemble 套娃
+> **文档权威链（防误读）**: `README.md`（入口/结果快照）→ `docs/plan-v1.8.0.md`（**路线唯一 current source of truth**，历史版本全部归档于 `docs/_archive/plans/`）→ `docs/EXPERIMENT_SUMMARY.md`（实验结果台账）。路线问题一律以 plan-v1.8.0 为准；plan 状态字段 = "讨论中/执行中/已完成" 三态，无歧义。
+
+三方案（GPT1 四论 State-Conditioned MoE / GPT2 一论 Conditional Innovation / 本地 P5-02M 幅度调制）收敛到同一核心：**"实际 − 给定市场状态的期望"（条件化/创新信息）**。合并队列：
+
+1. **P5-02M（S, 30min 零训练）**：market 幅度预测调制 v7（pred' = v7 × (m/median)^γ），41-50 选 γ，51-70 冻结——融合层条件化的零成本验证（D1-D3 诊断已支持）
+2. **P5-02B-lite v2（S, 半天）**：跨源审计——Surprise 家族（5/10/20/30/60s z-score vs 600s）+ Structural（Pressure/Conversion/Capacity/Impact）+ O×T 转化率，双 target（y + |y|），4.7 双轴筛选
+3. **P6-04 hard regime experts（S）**：按市场状态分 3-5 个 regime 各自训练（证明 f_regime1 ≠ f_regime2）
+4. 后置：soft MoE / conditional innovation 条件模型 / SSL 预训练（全部等 1-3 证据）；P6-01 residual target 降 B（与 P5-03 同义，resid probe 预判死）
+5. 停止：TCN 调参 / Transformer / 152 cosine 变体 / RealMLP 搜索 / 换皮 / calibration / ensemble 套娃 / 不经审计直接展开交互或条件模型
+
+**market 序列建模口径（已统一）**: 200 步 × **18 通道**（11 raw + 7 derived: mid/spread1/depth1/imb1/spread2/depth2/imb2），均匀 3s 网格。⚠️ 历史文档中的 "13ch" 是 P5-01 之前的旧规划残留（当时计划 11 raw + 2 derived），实际实现一律 18ch；market.feather 原始表 13 列 = schema 列数（sample_id + seconds + 11 盘口字段），不是建模通道数。
 
 ## 仓库结构
 
@@ -47,8 +53,8 @@ Kaggle 社区赛的个人研究仓库。任务是根据高频行情（market 600
 ├── tests/                    # 关键运行管线的回归测试
 ├── docs/
 │   ├── README.md             # 文档索引（导航入口）
-│   ├── plan-v1.4.0.md        # 当前方案（版本化, 旧版在 _archive/plans/）
-│   ├── EXPERIMENT_SUMMARY.md # 当前实验总览与决策
+│   ├── plan-v1.8.0.md        # 当前方案（唯一 current source of truth, 旧版在 _archive/plans/）
+│   ├── EXPERIMENT_SUMMARY.md # 当前实验总览与决策（结果台账）
 │   ├── data-generation-structure.md  # 四文件生成结构取证 + 最像比赛
 │   ├── calibration.md        # 分模型族校准与提交门禁
 │   └── _archive/             # 历史方案/阶段报告/抓取快照

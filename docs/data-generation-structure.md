@@ -70,7 +70,7 @@
      order/tx     = 最后 60s 原始订单/成交事件流 (明细层, 10× 截断省体积)
 ```
 
-**核心推论**: market.feather 是全历史信息的压缩层,order/tx 只是最后 60s 的细节放大。**600s 的 bar 序列 (3s 网格 × 13 通道 ≈ 200 步) 是唯一尚未被自研管线完整建模的信息层** (152 特征只用 60s order/tx; 34 聚合特征无信号; 序列建模仅 LB142 实证)。
+**核心推论**: market.feather 是全历史信息的压缩层,order/tx 只是最后 60s 的细节放大。**600s 的 bar 序列 (3s 网格 ≈ 200 步, 建模 18 通道 = 11 raw + 7 derived; 原始表 13 列 = schema 列数, 非通道数) 是唯一尚未被自研管线完整建模的信息层** (152 特征只用 60s order/tx; 34 聚合特征无信号; 序列建模 P5-01/P5-02I 已实证: corr(y)=0.086 cosine, 信息在 ≤30s 短窗 + 跨通道同步 + 幅度状态)。
 
 ## 2. 与历史比赛对比: 哪个最像
 
@@ -96,7 +96,7 @@
 ### 方案 (按性价比排序)
 
 1. **P5-02: frozen market encoder → 32d latent → RealMLP** (主线, 已立项)
-   3s bar 网格 200 步 × 13 通道 (11 raw + 2 派生), cosine loss 训练小 Conv1D (禁 Transformer), **latent 冻结**后与 152 特征拼接进 RealMLP — 防 TinyLOBERT corr 0.86-0.98 重演; 门禁: corr(latent, 152) < 0.70 且 frozen ΔPSEUDO ≥ +0.0015。
+   3s bar 网格 200 步 × **18 通道** (11 raw + 7 derived: mid/spread1/depth1/imb1/spread2/depth2/imb2 — P5-01/P5-02I 实际口径), cosine loss 训练小 Conv1D (禁 Transformer), **latent 冻结**后与 152 特征拼接进 RealMLP — 防 TinyLOBERT corr 0.86-0.98 重演; 门禁: corr(latent, 152) < 0.70 且 frozen ΔPSEUDO ≥ +0.0015。⚠️ 历史文本中的 "13 通道 (11 raw + 2 派生)" 为旧规划残留, 实际实现一律 18 通道。
 2. **cosine loss 全线回填** (已验证真实互补, 注意 4.14 配方纪律: 验证命题=提交命题)
 3. **与 LB142 预测融合** (corr 0.82, 0.5/0.5 已实证 0.142; 新序列 latent 若 corr < 0.85 再进融合)
 4. **DRW 式防泄漏纪律保持** (purged TS CV + 预训练类一律 inner-train 拟合 — JS2021 冠军教训)

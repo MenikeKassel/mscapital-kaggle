@@ -1,13 +1,14 @@
 # MSCapital 项目文档索引 (docs/)
 
-> 维护: 每阶段实验后更新本索引 + git 提交。当前方案: [plan-v1.4.0.md](./plan-v1.4.0.md)
+> 维护: 每阶段实验后更新本索引 + git 提交。
+> **文档权威链**: `README.md`（入口/结果快照）→ `plan-v1.8.0.md`（路线唯一 current source of truth）→ `EXPERIMENT_SUMMARY.md`（结果台账）。历史 plan 全部归档于 `_archive/plans/`，不保留在 docs/ 根目录，避免状态歧义。
 
 ## 📋 当前方案与总览
 
 | 文档 | 角色 |
 |---|---|
-| [plan-v1.4.0.md](./plan-v1.4.0.md) | **当前方案** (v1.4.0: GPT 评审吸收 — Alpha Factory 框架 + 3 处修正 + P5 合并队列) |
-| [EXPERIMENT_SUMMARY.md](./EXPERIMENT_SUMMARY.md) | 实验总览汇总 (2026-08-14) |
+| [plan-v1.8.0.md](./plan-v1.8.0.md) | **当前方案 (唯一 current source of truth)** — v1.8.0: GPT1 四论 + GPT2 一论吸收 (条件化/创新信息收敛) + P5-02M/B-lite v2/P6-04 合并队列 |
+| [EXPERIMENT_SUMMARY.md](./EXPERIMENT_SUMMARY.md) | 实验总览汇总 (2026-08-14) — 结果台账 |
 | [data-generation-structure.md](./data-generation-structure.md) | 四文件数据生成结构取证 + 最像比赛 (TATC/DRW) + 最优方案 (2026-08-14) |
 | [calibration.md](./calibration.md) | CV/PSEUDO/LB 校准表 |
 | [protocol-v2.md](./protocol-v2.md) | Protocol-v2 残差验证管线 |
@@ -35,7 +36,7 @@
 
 ## 🗄️ 归档 (历史版本, git 历史可追溯)
 
-- `_archive/plans/` — plan-v1.0.0 ~ v1.3.0 (方案历史版本, 当前方案见 plan-v1.4.0.md)
+- `_archive/plans/` — plan-v1.0.0 ~ v1.7.0 (方案历史版本全部归档; docs/ 根目录只保留当前版 plan-v1.8.0.md)
 - `_archive/reports/` — project_report_v1~v3 (早期阶段报告, 给 Codex/GPT 评审用) · handoff_codex.md (Codex 交接压缩文档)
 
 ## 命名与维护纪律
