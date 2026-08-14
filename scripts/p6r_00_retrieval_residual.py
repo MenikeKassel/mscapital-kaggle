@@ -104,7 +104,9 @@ def neighbor_month_stats_vectorized(months: np.ndarray, idx: np.ndarray, lo: int
         counts = np.bincount(qids * n_labels + flat, minlength=n_c * n_labels).reshape(n_c, n_labels)
         p = counts / np.maximum(counts.sum(axis=1, keepdims=True), 1)
         nz = p > 0
-        entropy[start : start + n_c] = -(p * np.where(nz, np.log(p), 0.0)).sum(axis=1)
+        with np.errstate(divide="ignore"):
+            logp = np.log(p)
+        entropy[start : start + n_c] = -(p * np.where(nz, logp, 0.0)).sum(axis=1)
         uniques[start : start + n_c] = (counts > 0).sum(axis=1)
     return entropy, uniques
 
@@ -169,6 +171,8 @@ def run_outer(
     c4_idx: np.ndarray,
     outer: str,
     out_root: Path,
+    *,
+    skip_query: bool = False,
 ) -> dict[str, Any]:
     months = np.asarray(canonical.month)
     target = np.asarray(canonical.target, dtype=np.float64)
@@ -188,23 +192,41 @@ def run_outer(
         for k in K_GRID:
             key = f"{metric}_K{k}"
             t0 = time.perf_counter()
-            r_hat = np.full(n, np.nan)
-            kth = np.full(n, np.nan)
-            meand = np.full(n, np.nan)
-            entr = np.full(n, np.nan)
-            nuniq = np.full(n, -1, dtype=np.int16)
-            for m in q_months:
-                qmask = months == m
-                bmask = bank_mask(months, m)
-                knn = StateKNN(metric).fit(z_std[bmask], k)
-                idx, dists, w = knn.query(z_std[qmask], k)
-                r_hat[qmask] = retrieve_residual_mean(idx, w, r_resid)
-                kth[qmask] = dists[:, -1]
-                meand[qmask] = dists.mean(axis=1)
-                if k == REF_K:
-                    e, u = neighbor_month_stats_vectorized(months, idx, 21, 70)
-                    entr[qmask] = e
-                    nuniq[qmask] = u
+            if skip_query:
+                table = pl.read_parquet(out_root / outer / "predictions.parquet")
+                r_hat = np.asarray(table[f"r_hat_{key}"].to_numpy(), dtype=np.float64)
+                kth = np.full(n, np.nan)
+                meand = np.full(n, np.nan)
+                entr = np.full(n, np.nan)
+                nuniq = np.full(n, -1, dtype=np.int16)
+                diag = pl.read_parquet(out_root / outer / "neighbor_diagnostics.parquet").filter(
+                    (pl.col("metric") == metric) & (pl.col("k") == k)
+                )
+                if diag.height:
+                    pos = np.searchsorted(np.sort(canonical.sample_id), diag["sample_id"].to_numpy())
+                    kth[pos] = diag["kth_dist"].to_numpy()
+                    meand[pos] = diag["mean_dist"].to_numpy()
+                    if "entropy" in diag.columns:
+                        entr[pos] = diag["entropy"].to_numpy()
+                        nuniq[pos] = diag["n_unique"].to_numpy()
+            else:
+                r_hat = np.full(n, np.nan)
+                kth = np.full(n, np.nan)
+                meand = np.full(n, np.nan)
+                entr = np.full(n, np.nan)
+                nuniq = np.full(n, -1, dtype=np.int16)
+                for m in q_months:
+                    qmask = months == m
+                    bmask = bank_mask(months, m)
+                    knn = StateKNN(metric).fit(z_std[bmask], k)
+                    idx, dists, w = knn.query(z_std[qmask], k)
+                    r_hat[qmask] = retrieve_residual_mean(idx, w, r_resid)
+                    kth[qmask] = dists[:, -1]
+                    meand[qmask] = dists.mean(axis=1)
+                    if k == REF_K:
+                        e, u = neighbor_month_stats_vectorized(months, idx, 21, 70)
+                        entr[qmask] = e
+                        nuniq[qmask] = u
             sel = select_alpha(baseline[tune_mask], r_hat[tune_mask], target[tune_mask], ALPHA_GRID)
             y_hat_canon = blend_with_scales(baseline[fr_mask], r_hat[fr_mask], sel["baseline_rms"], sel["residual_rms"], sel["alpha"])
             base_canon = cosine_uncentered(baseline[fr_mask], target[fr_mask])
@@ -251,69 +273,72 @@ def run_outer(
             pred_cols[f"r_hat_{key}"] = r_hat
             pred_cols[f"y_hat_c4_{key}"] = np.full(n, np.nan)
             pred_cols[f"y_hat_c4_{key}"][c4_idx] = y_hat_c4
-            ok = np.isfinite(kth)
-            diag_frames.append(
-                pl.DataFrame(
-                    {
-                        "sample_id": canonical.sample_id[ok],
-                        "month": months[ok],
-                        "metric": metric,
-                        "k": k,
-                        "mean_dist": meand[ok],
-                        "kth_dist": kth[ok],
-                        "entropy": entr[ok],
-                        "n_unique": nuniq[ok],
-                        "support": support[ok],
-                    }
+            if not skip_query:
+                ok = np.isfinite(kth)
+                diag_frames.append(
+                    pl.DataFrame(
+                        {
+                            "sample_id": canonical.sample_id[ok],
+                            "month": months[ok],
+                            "metric": metric,
+                            "k": k,
+                            "mean_dist": meand[ok],
+                            "kth_dist": kth[ok],
+                            "entropy": entr[ok],
+                            "n_unique": nuniq[ok],
+                            "support": support[ok],
+                        }
+                    )
                 )
-            )
             print(f"    {outer} {key}: tune_alpha={sel['alpha']:.2f} "
                   f"delta_c4={metrics['delta_c4']:+.6f} delta_canon={metrics['delta_canon']:+.6f} "
                   f"corr_rhat_r={metrics['corr_rhat_r']:+.4f} ({time.perf_counter()-t0:.0f}s)", flush=True)
 
-    # V2 variant (capped bank) for the tune-best config
-    best_key = max(results, key=lambda key: results[key]["tune_score"])
-    best = results[best_key]
-    k, metric = best["k"], best["metric"]
-    cap = VISIBLE_END[outer]
-    r_hat_v2 = np.full(n, np.nan)
-    for m in q_months:
-        qmask = months == m
-        bmask = bank_mask(months, m, cap_month=cap)
-        if not bmask.any():
-            continue
-        knn = StateKNN(metric).fit(z_std[bmask], k)
-        idx, dists, w = knn.query(z_std[qmask], k)
-        r_hat_v2[qmask] = retrieve_residual_mean(idx, w, r_resid)
-    sel_v2 = select_alpha(baseline[tune_mask], r_hat_v2[tune_mask], target[tune_mask], ALPHA_GRID)
-    y_hat_v2 = blend_with_scales(c4["pred"], r_hat_v2[c4_idx], sel_v2["baseline_rms"], sel_v2["residual_rms"], sel_v2["alpha"])
-    results["v2_capped"] = {
-        "variant": f"capped_{cap}_bank_of_{best_key}",
-        "delta_c4": cosine_uncentered(y_hat_v2, c4["target"]) - base_c4,
-        "alpha": sel_v2["alpha"],
-    }
+    if not skip_query:
+        # V2 variant (capped bank) for the tune-best config
+        best_key = max(results, key=lambda key: results[key]["tune_score"])
+        best = results[best_key]
+        k, metric = best["k"], best["metric"]
+        cap = VISIBLE_END[outer]
+        r_hat_v2 = np.full(n, np.nan)
+        for m in q_months:
+            qmask = months == m
+            bmask = bank_mask(months, m, cap_month=cap)
+            if not bmask.any():
+                continue
+            knn = StateKNN(metric).fit(z_std[bmask], k)
+            idx, dists, w = knn.query(z_std[qmask], k)
+            r_hat_v2[qmask] = retrieve_residual_mean(idx, w, r_resid)
+        sel_v2 = select_alpha(baseline[tune_mask], r_hat_v2[tune_mask], target[tune_mask], ALPHA_GRID)
+        y_hat_v2 = blend_with_scales(c4["pred"], r_hat_v2[c4_idx], sel_v2["baseline_rms"], sel_v2["residual_rms"], sel_v2["alpha"])
+        results["v2_capped"] = {
+            "variant": f"capped_{cap}_bank_of_{best_key}",
+            "delta_c4": cosine_uncentered(y_hat_v2, c4["target"]) - base_c4,
+            "alpha": sel_v2["alpha"],
+        }
 
-    # beta=1 residual variant for the same config
-    r1 = target - baseline
-    r_hat_1 = np.full(n, np.nan)
-    for m in q_months:
-        qmask = months == m
-        bmask = bank_mask(months, m)
-        knn = StateKNN(metric).fit(z_std[bmask], k)
-        idx, dists, w = knn.query(z_std[qmask], k)
-        r_hat_1[qmask] = retrieve_residual_mean(idx, w, r1)
-    sel_1 = select_alpha(baseline[tune_mask], r_hat_1[tune_mask], target[tune_mask], ALPHA_GRID)
-    y_hat_1 = blend_with_scales(c4["pred"], r_hat_1[c4_idx], sel_1["baseline_rms"], sel_1["residual_rms"], sel_1["alpha"])
-    results["beta1_variant"] = {
-        "variant": f"residual_y_minus_y0_of_{best_key}",
-        "delta_c4": cosine_uncentered(y_hat_1, c4["target"]) - base_c4,
-        "alpha": sel_1["alpha"],
-    }
+        # beta=1 residual variant for the same config
+        r1 = target - baseline
+        r_hat_1 = np.full(n, np.nan)
+        for m in q_months:
+            qmask = months == m
+            bmask = bank_mask(months, m)
+            knn = StateKNN(metric).fit(z_std[bmask], k)
+            idx, dists, w = knn.query(z_std[qmask], k)
+            r_hat_1[qmask] = retrieve_residual_mean(idx, w, r1)
+        sel_1 = select_alpha(baseline[tune_mask], r_hat_1[tune_mask], target[tune_mask], ALPHA_GRID)
+        y_hat_1 = blend_with_scales(c4["pred"], r_hat_1[c4_idx], sel_1["baseline_rms"], sel_1["residual_rms"], sel_1["alpha"])
+        results["beta1_variant"] = {
+            "variant": f"residual_y_minus_y0_of_{best_key}",
+            "delta_c4": cosine_uncentered(y_hat_1, c4["target"]) - base_c4,
+            "alpha": sel_1["alpha"],
+        }
 
     # persist
     (out_root / outer).mkdir(parents=True, exist_ok=True)
-    pl.DataFrame(pred_cols).write_parquet(out_root / outer / "predictions.parquet")
-    pl.concat(diag_frames).write_parquet(out_root / outer / "neighbor_diagnostics.parquet")
+    if not skip_query:
+        pl.DataFrame(pred_cols).write_parquet(out_root / outer / "predictions.parquet")
+        pl.concat(diag_frames).write_parquet(out_root / outer / "neighbor_diagnostics.parquet")
     monthly_all = []
     for key, mets in results.items():
         if key in ("v2_capped", "beta1_variant"):
@@ -360,13 +385,15 @@ def main() -> None:
         c4_idx = align_ids(c4["sample_id"], canonical.sample_id)
         if not np.array_equal(c4["month"], months[c4_idx]) or not np.array_equal(c4["target"], target[c4_idx]):
             raise ValueError(f"{outer}: c4 frozen baseline rows do not align with canonical OOF")
-        results = run_outer(canonical, z_std, r_resid, c4, c4_idx, outer, args.output_root)
+        skip = (args.output_root / outer / "predictions.parquet").exists()
+        results = run_outer(canonical, z_std, r_resid, c4, c4_idx, outer, args.output_root, skip_query=skip)
         all_results[outer] = results
         for key, mets in results.items():
             if key in ("v2_capped", "beta1_variant"):
                 continue
             fold_rows.append(mets)
-        best = max(results, key=lambda k: results[k]["tune_score"])
+        config_keys = [k for k in results if not k.startswith(("v2_", "beta1"))]
+        best = max(config_keys, key=lambda k: results[k]["tune_score"])
         print(f"[P6R-00] outer={outer} done: tune-best={best} delta_c4={results[best]['delta_c4']:+.6f}", flush=True)
 
     pl.DataFrame(fold_rows).write_csv(args.output_root / "fold_metrics.csv")

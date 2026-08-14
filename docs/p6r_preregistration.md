@@ -132,6 +132,9 @@ output/p6r_00/  (及 p6r_01...)
 10. 特征顺序固定（按名索引）
 11. deterministic seed（2026）
 
+**P6R-01 X 特征 NaN/inf 策略（2026-08-14 执行前补充，实测 f0726 40 特征 NaN 总量 0.11%，最差列 ~2%）**:
+- NaN 用 inner-train 月列均值 impute（→ 标准化后为 0），inf clip 到 inner-train 有限范围，再标准化；标准化后全量 assert finite
+
 ## 10. 禁止清单（本轮）
 
 Transformer/Mamba/大 RealMLP/大规模 HP 搜索/新 TCN/152 扩展/full multimodal concat/Soft MoE/Full World Model/M→O→T predictive coding/Kaggle submission/test target 推断/LB probing。P6R-08 不实施。
