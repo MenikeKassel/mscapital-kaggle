@@ -346,3 +346,22 @@ LB142 v10 的 lambda_cos = 0.05 (5x), v9 grid = 纯 cosine。**我们的 objecti
 生产 cos 为 uncentered (LB 指标精确形式), 同步跑 OOF 验证 (p4_08a_unc.py) 确认 uncentered 形态同样过门禁。
 
 **待办**: 融合 v7/v8b → 多 α 版本 submission → 用户挑选提交
+
+---
+
+# 14. P4-08E: cosine 案件收口 (严格 v7 复刻)
+
+**实验**: 生产 v7 公式 (0.8·v5 + 0.2·RL, 同 43 脚本) 在 OOF 41-70 上构造 v7_like, 测 + α·cosine
+
+**结果**:
+- v7_like + 0.13·cos: Δ = **+0.00098** (最优 a=0.17: +0.00107)
+- CleanBaseline + 0.13·cos 同子集: Δ = +0.00030 (P4-08A 的 +0.009 是 21-50 区间+调参乐观偏差)
+- 月度 25/30 正; 分段 41-50 +0.0008 / 51-60 +0.0006 / 61-70 +0.0014 全正
+- corr(cos, residual_v7) = -0.52 (cos 与 v7 共享方差大)
+
+**收口结论**:
+- cosine 是真实但小的 complement (+0.001 OOF, 方向稳定 25/30 月)
+- 两次 Public 0.135 = +0.001 折损到 LB <0.0005, 完全自洽 (非谜团)
+- 修正 P4-08A 表述: "objective mismatch 是生产 v7 主要瓶颈" 不成立;
+  cosine 是 CleanBaseline 区间性 complement, 非生产 v7 的突破
+- cosine 线暂停 (不再调 α/架构/提交), 资源转 market 600s
