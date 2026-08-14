@@ -1,12 +1,33 @@
-# MSCapital Plan v1.5.0 — GPT 二轮评审吸收 (Information Audit 前置)
+# MSCapital Plan v1.6.0 — P5-02I 执行完毕 (信息结构定位)
 
-> 日期: 2026-08-14 | 版本: v1.5.0 (上一版 v1.4.0)
-> 来源: 用户转述 GPT 二轮评审意见 (P5-02I Information Audit / surrogate data tests)
-> 状态: **执行中** — 2026-08-14 用户五项全部拍板通过, 已授权执行 P5-02I (M0-M5 + probes)
+> 日期: 2026-08-14 | 版本: v1.6.0 (上一版 v1.5.0)
+> 来源: 用户五项拍板 → P5-02I 全量执行完成 (8 臂 + 5 probes)
+> 状态: **P5-02I 完成, 等用户拍板 P5-02 backbone**
 
 ## 版本历史
+- v1.6.0 (2026-08-14): P5-02I 执行完毕 — 信息结构五条实锤; GPT1 幅度猜想反转 (mag 0.43 >> sign 0.56); P5-03 预判死降级; backbone 建议 = 短窗 Conv1D + channel-mixing (MLPLOB-lite); 结果详见 `docs/p5-02i-info-audit-report.md`。
 - v1.5.0 (2026-08-14): 吸收 GPT 二轮意见 — 信息论框架确认; P5-02I Information Audit (surrogate 测试) 插入 P5-02 之前; 修正 2 处技术缺陷 (M6 event-time 在 P5-01 协议上不可行、M7 需双源模型); arXiv 论文核验 2 篇 ✅; target 分解 probe + gated alpha 采纳为诊断/可选形态。
 - v1.4.0 (2026-08-14): 吸收 GPT 首轮评审 — Alpha Factory 框架; 三处修正 (feature bank 降级、残差聚合版已死、context×event 采纳); 合并 P5 队列。
+
+## 0. P5-02I 执行结果摘要 (2026-08-14, 全套结果见 docs/p5-02i-info-audit-report.md)
+
+FROZEN 51-70, R = 相对 M0 损失:
+
+| 臂 | corr(y) | R(corr) | frozen Δ | R(Δ) | 判读 |
+|---|---:|---:|---:|---:|---|
+| M0 raw | +0.0861 | 0 | +0.000926 | 0 | 基线 (P5-01 复现 ✓) |
+| M1 shuffle | +0.0231 | 0.73 | +0.000155 | 0.83 | 时序必要 |
+| M2 reverse | +0.0852 | 0.01 | +0.000929 | ~0 | **无时间箭头** |
+| M3-5 block10/20/50 | ~0.026 | 0.69-0.70 | ~0.0002 | 0.69-0.81 | **信息尺度 ≤10 步 (30s), 无长程** |
+| M6 desync | +0.0197 | 0.77 | +0.000057 | 0.94 | **跨通道同步是核心** |
+| M7 phase | +0.0038 | 0.96 | −0.000256 | 1.28 | **相位/非线性形态** |
+
+**五条实锤**: 时序必要 / 无时间箭头 / 短程 ≤10 步 / 跨通道同步核心 / 非线性相位形态。
+**一句话**: alpha = 短时窗 (≤30s) 内跨通道同步的、时间反演对称的非线性事件形态。
+
+**Probes**: sign AUC 0.56 (方向弱) | rank corr 0.089 | **|y| corr 0.43-0.47 (幅度巨大)** | extreme AUC 0.78 (大波动识别强) | **y−β·v7 方向 AUC 0.51 ≈ 0.5 (残差无信息)**。
+
+**⚠️ GPT1 猜想反转**: "sign 大/magnitude 小" 实测相反 — 幅度是富矿, 方向是瓶颈。MSE 失败机制 = y=sign·|y| 且 E[sign|x]≈0 → MSE 最优解≈0; cosine 兑现弱方向。**乘法双头 pred = sign_head × mag_head** 有独立增益空间; market 幅度 = gating 信号。
 
 ## 1. GPT 二轮核心论点 (与本地证据核实)
 
@@ -44,9 +65,10 @@ P5-01 模型**不看 order/transaction** (纯 market 序列), 错位无从构造
 | 优先级 | 实验 | 内容 | 门禁 | 备注 |
 |---|---|---|---|---|
 | **S** | **P5-02I Information Audit** (新, GPT 二轮) | M0 RAW 基线 + M1 全随机 shuffle + M2 time reverse + M3 block shuffle 10/20/50 + M4 channel desync + M5 phase randomize。同一 Conv1D/cosine/uncentered/同 seed/同切分 (21-40 → 41-50 选 α → 51-70 冻结)。每臂报: corr(y) / corr(v7) / frozen Δ / 月度正率 | 诊断实验, 无数字门禁; **结果决定 P5-02 架构** | M6 SKIP (修正 A); M7 → P5-02B (修正 B); M1-M4 索引变换零成本, M5 FFT 预处理; 复用 p5_01 脚本骨架, 一次跑完 |
-| **S** | **P5-02 序列 latent** (主线, v1.4.0 继承) | frozen market encoder → 32d latent → 拼 152 → RealMLP | corr(latent,152)<0.70 且 ΔPSEUDO≥+0.0015 | **backbone 按 P5-02I 结果选择**: shuffle/reverse 崩 → Conv/SSM; desync 崩 → channel-mixing/attention; block50 崩 → 长感受野 |
+| **S** | **P5-02 序列 latent** (主线, backbone 待拍板) | frozen market encoder → 32d latent → 拼 152 → RealMLP | corr(latent,152)<0.70 且 ΔPSEUDO≥+0.0015 | **backbone 按 P5-02I 定: 短窗 (60-100 步) + channel-mixing 优先 (MLPLOB-lite 风格 Conv1D 短核 + per-step channel MLP); 淘汰长注意力/长 TCN/方向性 RNN** |
+| **S** | **P5-02 乘法双头** (新, P5-02I probe 驱动) | pred = sign_head × mag_head, cosine 目标 | 同 P5-02 门禁, 与单头对照 | 幅度富矿 (0.43) 被符号瓶颈 (0.56) 卡住, 双头是唯一同时利用两者的形态 |
 | **S** | **P5-02B context×event** (含 M7) | 600s context × 60s event 相对/交互特征 → RealMLP/cosine; M7 错位对照 (对齐 vs 错配) | corr 双轴诊断先行; 展开后 ΔPSEUDO≥+0.0015 且 ≥3/4 折正; M7: 对齐 Δ 显著 > 错配 Δ | 全部相对形式 (防漂移); M7 结果 = 跨源 synergy 直接证据 |
-| **S** | **P5-03 序列版残差** | P5-01 cosine 序列模型 → 目标 r = y − β·v7 (M01-A 协议) | corr(res_pred,y)>0 且 corr(res_pred,v7)≈0 且 frozen Δ>0 | 聚合版已死 (P4-06A), 序列版是新审判 |
+| **S** | **P5-03 序列版残差** ⚠️ 降级 | P5-01 cosine 序列模型 → 目标 r = y − β·v7 | corr(res_pred,y)>0 且 corr(res_pred,v7)≈0 且 frozen Δ>0 | **P5-02I resid probe AUC 0.51 ≈ 0.5 预判死; 降为 B 级可选验证 (浅头诊断已无信号), 不占 S 算力** |
 | A | P5-04 MLPLOB | P5-02 backbone 变体 (MLP 吃序列) | 与 Conv1D 对比, 同门禁 | P5-02 确认表示有效后 |
 | A | P5-05 冻结融合 | v7 + market alpha 家族; **41-50 选权重, 51-70 完全冻结** | 4.14 纪律 + 提交前 30 秒审计 | **gated alpha (α(x) 按活动度分层) 为可选形态, 预注册后再测, 不临时加** |
 | B | P5-02A-lite geometry | microprice/relative spread/L1-L2 imb/depth slope 手工家族 | 小规模 corr 诊断 | 仅在序列路线门禁失败时升级 |
