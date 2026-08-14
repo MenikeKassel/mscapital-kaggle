@@ -232,3 +232,45 @@ P4-04  0.5 价格群深度分析 (第二资产?)
 - ✅ Kaggle 讨论实页抓取 (bestwater/iamltpn/MAIDANG/yunsuxiaozi/Rib~)
 - ⚠️ factors 表内容不可得 (精简包排除);LB142 网格构建脚本不可得
 - ⚠️ 0.155+/0.159 队伍方法无公开信息 (仅提交次数情报)
+
+---
+
+# 10. P4-05 / P4-01a / P4-04b 执行结果 (2026-08-14)
+
+## P4-05 月度漂移可预测性 → **失败 (决定性负结果)**
+
+- μ_m 序列 (0-70): ACF(1..12) 全部 |r|<0.25 (近白噪声);sign persistence 0.471 (< 随机 0.5);趋势 7e-6/月
+- 8 种估计 (expanding/roll3/6/12/ewma3/6/12/trend) × 4 outer, 严格 rolling-origin
+- **全部 ΔPSEUDO ≈ 0 (最大 +0.000001)**;α 选择器几乎全选 0;months_pos ≈ 随机水平
+- **结论: "月均值显著" (16.5 SE) 与 "月均值可预测" 彻底分离 — 漂移存在但不可从历史预测, 关闭月均值后处理路线**
+
+## P4-01a 600s 长上下文测试 → **通过 (H4 升级为直接证据)**
+
+d_orth = ref − E[ref|v7] (test, n=647,896, std=0.000638):
+
+| 预测器 | R² (d_orth) |
+|---|---:|
+| M_short (仅最后 60s) | 0.00093 |
+| **M_long (仅 -600..-60s)** | **0.00117** (permutation null max=0.000063 → **18.4×**) |
+| M_short + M_long | 0.00139 (long increment +0.00046) |
+| 最远段 m600_300 (-600..-300s) 单独 | 0.00065 (独立解释力!) |
+
+- **超出最后 60s 的 540s market 信息显著解释 LB142-v7 分歧** → LB142 确实利用长时域 context
+- 4 段 R² 均匀 (0.00065~0.00093) → 长历史信息分散在各时段, 不是 60s 窗口特征的另一种表达
+- **下一步: 600s temporal-state compression 成为主线方向**
+
+## P4-04b 0.5 价格群 → **H1' 重开 (第二 instrument/regime 证据)**
+
+- train: 6252 样本, **71 个月全部存在** (每月 25-425)
+- **test: 4900 样本 (0.76%) 同样存在** → 跨 train/test 稳定
+- target: 均值 -0.00019, std 0.0017, **|y| 仅主群 17%** (scale discontinuity 无法用低波动解释)
+- |d_orth| 略低于主群 (0.00033 vs 0.00042)
+- **判定: 满足"跨所有月份稳定存在 + 独立指纹" → H1' (latent instrument/normalization bucket/source regime) 重开**
+
+## 分叉逻辑更新
+
+```text
+P4-05 失败      → 不加 market-time prior (关闭)
+P4-01a 成功     → 研究 600s long-context information extraction (主线!)
+0.5 群稳定跨月  → 重开 H1' latent instrument/group 调查
+```
