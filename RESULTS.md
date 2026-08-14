@@ -240,3 +240,23 @@ CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和。
 | N002 | >90特征 (社区 bestwater) | CV 0.1409 ↑ / LB 0.116 ↓ | 90特征甜点位; 特征增益需LB验证 |
 | N003 | Transformer 深度优化 (社区 bestwater) | CV 0.1549 / LB 0.120 | CV/LB脱节=分布漂移, 序列模型不直接加分 |
 | N007 | RealMLP PSEUDO v10/v11 运行管线 | v10 在 P100 上重复安装 torch 并无限 `execv`; v11 虽修复启动，但原脚本会先跑无关全量训练，且最终 PSEUDO 预测未加载最佳 EMA | v12 加版本幂等保护，并在 PSEUDO 训练后恢复最佳 EMA、保存产物、立即退出；启动/产物顺序均加入回归测试 |
+
+## P5 Probe 三件套 (2026-08-14, 任务书严格时序协议)
+
+### P5-A Nested MAG-Gate → KILL (docs/p5a-mag-gate-report.md)
+- 4-bin 幅度门控 (v7 × a_bin(m̂)), 嵌套 temporal (gate 只在前月 OOF 拟合): **Δ_outer = −0.000146** (非嵌套 +0.000138 假增益), 月度 6/20, gate≈常数 (std=0.011), 置换 m̂ 对照 ≈0
+- m̂ 复现 P5-02I P_mag (0.4664/0.4266 ✓) → 前提成立但条件幅度分配无法变现 (cosine 全局尺度不变)
+- **MAG-MoE / COC 幅度调制关闭**
+
+### P5-B SCFI Conditional Innovation → CONTINUE (LGB 强 / NN 无) (docs/p5b-scfi-report.md)
+- 新构建 73 raw O/T 聚合 (side×action 拆分/burstiness/size 分位, f0726 缺失面); Ridge cross-fit nuisance (M→O, M+O→T), Z = 残差/MAD(train 折外)
+- 五臂 LGB (B1 官方参数, 双 temporal block): **C (152+Z) Δ=+0.0075 (17/20 月正, late +0.0091), D−E=+0.0016 (超 capacity control), blendΔ=+0.00094**; B (152+raw) +0.0058
+- corr(C,canon)=0.872 → LIVE 未达 (corr<0.80), 条件模型升级保持门禁
+- **NN spot-check (SmallMLP×3 seeds): ΔC≈+0.0001 (12/20) → Z 增益 learner 依赖 (LGB 特异)**
+
+### P5-C RICS Cross-Channel Geometry → KILL (docs/p5c-rics-report.md)
+- 五层阶梯 (flatten/moments/cov/lag/phase) 全 ≤0.011 corr_y, R4 相位 −0.006 (反转相关 −0.69, 破坏反演不变); M0-ref (200 步) 复现 0.0861 ✓
+- "≤10 步形态" ≠ "最后 10 步" — alpha 在全窗口多位置 + 上下文; **wavelet/shapelet/spectral CNN 关闭**
+
+### 汇总 → docs/p5-final-decision.md
+- 短期: 152+73raw 与 152+Z 重训 LGB 进 blend (半天); 中期: RealMLP 精确 spot-check 决定 SCFI 是否升级

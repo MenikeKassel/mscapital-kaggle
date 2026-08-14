@@ -24,6 +24,7 @@
 | P3 (二代表示) | [p3-results.md](./p3-results.md) (SAE/掩码预训练/网格 — 全部 gate F 或终止) |
 | P4 (隐藏信息调查) | [p4-hidden-information-report.md](./p4-hidden-information-report.md) (权威报告) · [p4-01a-market-forensics-report.md](./p4-01a-market-forensics-report.md) (三门禁 CONDITIONAL GO) |
 | E 系列 | [e01-e02-e03-results.md](./e01-e02-e03-results.md) (状态条件化 E02 gate True) |
+| P5 Probe 三件套 | [p5a-mag-gate-report.md](./p5a-mag-gate-report.md) (MAG KILL) · [p5b-scfi-report.md](./p5b-scfi-report.md) (SCFI CONTINUE, LGB 强/NN 无) · [p5c-rics-report.md](./p5c-rics-report.md) (RICS KILL) · **[p5-final-decision.md](./p5-final-decision.md) (三 Probe 汇总裁决)** |
 
 ## 📚 方法调研与溯源
 

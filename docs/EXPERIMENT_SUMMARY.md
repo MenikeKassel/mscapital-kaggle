@@ -225,3 +225,13 @@ E02 Reconditionor-lite 已通过：HistGradientBoosting pooled residual cosine `
 - **PSEUDO 区间乐观偏差**: 验证区间必须覆盖 test 对应位置 (51-70 从未出现在 21-50 验证中)
 - **生产 loss 权重审计**: lambda_cos=0.01 名义混合实际 99% MSE — 判定"用了 cosine"前先看权重
 - 提交前 30 秒审计: 归一化等价性 / std 尺度 / sample_id 顺序
+
+### 9.6 P5 Probe 三件套 (2026-08-14, 任务书严格时序协议, 汇总裁决 docs/p5-final-decision.md)
+
+| Probe | 判定 | 核心证据 |
+|---|---|---|
+| P5-A MAG-Gate (嵌套 4-bin 幅度门控) | **KILL** | 嵌套 Δ=−0.000146 (非嵌套 +0.000138 假增益), gate≈常数, 置换对照≈0 → 幅度条件化无法变现 (cosine 全局尺度不变) |
+| P5-B SCFI 条件创新 (五臂 LGB + NN spot-check) | **CONDITIONAL CONTINUE** | LGB: ΔC=+0.0075 (17/20 月), D−E=+0.0016 (超 capacity), blendΔ=+0.00094; **NN (SmallMLP×3): ΔC≈0 → learner 依赖**; 新 73 raw side×action 聚合独立有信号 (Arm B +0.0058); LIVE 未达 (corr 0.872>0.80) → 条件模型阶梯保持门禁 |
+| P5-C RICS 跨通道几何 (R0-R4 + M0 参照) | **KILL** | last-10 五层阶梯全部 ≤0.011 (R4 相位 −0.006, 反转相关 −0.69); M0 (200 步) 复现 0.0861 → alpha 不在 last-10 确定性几何; wavelet/shapelet/spectral 关闭 |
+
+**0.142 后主线**: ① 152+73raw 与 152+Z 重训 LGB 进 blend (短期, 特征已落盘) ② RealMLP 精确 spot-check 决定 SCFI 是否升级 (中期, 门禁后)。
