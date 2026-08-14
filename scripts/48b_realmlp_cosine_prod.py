@@ -2,8 +2,8 @@
 """
 P4-08B: 生产 RealMLP + cosine 主导 loss (唯一变量: lambda_cos 0.01 -> 1.0)
 
-train 0-70 全量 → test 预测 → 保存 npz (48_realmlp_prod_local.py 的镜像,
-只改 loss 权重). 与原生产版对比: realmlp_prod_test_pred.npz (MSE 主导).
+完全复刻 48_realmlp_prod_local.py 的生产管线 (label noise, 分组LR调度,
+EMA, return_codes), 唯一改动 cfg.lambda_cos = 1.0.
 """
 import sys, time
 import numpy as np
@@ -59,26 +59,38 @@ print(f"total_steps: {total_steps} (batch={cfg.train_batch_size}, epochs={cfg.ep
 
 step = 0
 for ep in range(1, cfg.epochs + 1):
+    ep_t0 = time.time()
+    permutation = torch.randperm(n, device=device)
+    sums = np.zeros(4, dtype=np.float64)
+    batches = 0
     model.train()
-    perm = torch.randperm(n, device=device)
-    ep_loss = 0.0
-    t_ep = time.time()
-    for i in range(0, n, cfg.train_batch_size):
-        idx = perm[i:i + cfg.train_batch_size]
-        progress = step / max(total_steps, 1)
-        optimizer.zero_grad()
-        logits, y_pred = model(xt[idx], ct[idx])
-        loss, cos, mse, rq_l = _loss(y_pred, yt[idx], logits, codes[idx], progress, cfg, torch, F)
+    for start in range(0, n, cfg.train_batch_size):
+        progress = min(step / total_steps, 1.0)
+        for group, base in zip(optimizer.param_groups, (20.0, 0.093, 1.0, 1.0, 0.1)):
+            group["lr"] = flat_anneal(cfg.learning_rate * base, progress)
+        indices = permutation[start:start + cfg.train_batch_size]
+        target = yt[indices]
+        noisy = target + torch.randn_like(target) * (cfg.label_noise_std * (1.0 - progress))
+        optimizer.zero_grad(set_to_none=True)
+        logits, pred = model(xt[indices], ct[indices], return_codes=True)
+        loss, cos, mse, rq_loss = _loss(pred, noisy, logits, codes[indices], progress, cfg, torch, F)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.gradient_clip)
         optimizer.step()
-        ema.update(model)
-        ep_loss += float(loss.item())
+        ema.update()
         step += 1
-    ema.apply_shadow()
-    print(f"Epoch {ep}/{cfg.epochs} | loss={ep_loss/max(total_batches,1):.6f} | "
-          f"{time.time()-t_ep:.0f}s | total {time.time()-t0:.0f}s", flush=True)
+        sums += np.asarray([loss.item(), cos.item(), mse.item(), rq_loss.item()])
+        batches += 1
+    ep_dt = time.time() - ep_t0
+    eta = ep_dt * (cfg.epochs - ep)
+    print(f"  [ep {ep:02d}/{cfg.epochs}] loss={sums[0]/batches:.4f} cos={sums[1]/batches:.4f} "
+          f"mse={sums[2]/batches:.4f} rq={sums[3]/batches:.4f} | {ep_dt:.0f}s/ep | ETA {eta/60:.0f}min", flush=True)
 
-pred = _predict(model, x_te, c_te, cfg, device, torch)
+# EMA 推理
+original = ema.apply()
+pred = _predict(model, x_te, c_te, cfg, str(device), torch)
+ema.restore(original)
 np.savez(f"{OUT}/realmlp_cosine_test_pred.npz", pred=pred, test_ids=test["sample_id"].to_numpy())
-print(f"saved realmlp_cosine_test_pred.npz ({len(pred):,}) ({time.time()-t0:.0f}s)", flush=True)
+print(f"saved realmlp_cosine_test_pred.npz ({len(pred):,})", flush=True)
+print(f"mean={pred.mean():.2e} std={pred.std():.2e}", flush=True)
+print("ALL DONE", flush=True)
