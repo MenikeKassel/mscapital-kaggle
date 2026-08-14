@@ -41,7 +41,7 @@ def load_f0726() -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Return (sample_id, feature_matrix, feature_names) sorted by sample_id."""
     df = pl.read_parquet(F0726_TEST).sort("sample_id")
     names = [c for c in df.columns if c != "sample_id"]
-    ids = df["sample_id"].to_numpy(dtype=np.int64)
+    ids = df["sample_id"].to_numpy().astype(np.int64)
     X = df.select(names).to_numpy().astype(np.float64)
     return ids, X, names
 
