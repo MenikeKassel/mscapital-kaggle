@@ -1,13 +1,26 @@
 # MSCapital 项目文档索引 (docs/)
 
 > 维护: 每阶段实验后更新本索引 + git 提交。
-> **文档权威链**: `README.md`（入口/结果快照）→ `plan-v1.8.0.md`（路线唯一 current source of truth）→ `EXPERIMENT_SUMMARY.md`（结果台账）。历史 plan 全部归档于 `_archive/plans/`，不保留在 docs/ 根目录，避免状态歧义。
+> **文档权威链**: `README.md`（入口/结果快照）→ `plan-v1.9.0.md`（路线唯一 current source of truth）→ `EXPERIMENT_SUMMARY.md`（结果台账）。历史 plan 全部归档于 `_archive/plans/`，不保留在 docs/ 根目录，避免状态歧义。
+
+## 🧭 工程化体系 (2026-08-15 整理, 研究历史入口)
+
+| 文档 | 角色 |
+|---|---|
+| [experiment-index.md](./experiment-index.md) | **研究历史总入口** — 按阶段全表 + 方向汇总 (5 分钟看懂) |
+| [research-findings.md](./research-findings.md) | 已确认结论 F001~F017 (证据→实验 ID→置信度) |
+| [failed-experiments.md](./failed-experiments.md) | 失败墓地 (按 6 类机制分类, Negative Knowledge Base) |
+| [method-map.md](./method-map.md) | 方法地图 (✅/🟡/❌/⚠️/🧪 全状态) |
+| [experiment-inventory.md](./experiment-inventory.md) | 全仓库资产清单 (可重跑生成) |
+| [reorganization-report.md](./reorganization-report.md) | 本次工程化整理迁移报告 |
+| [../experiments/registry.csv](../experiments/registry.csv) | 总实验台账 (71 实验, 机器可读) |
+| [../submissions/README.md](../submissions/README.md) | 提交登记表 (LB 可追溯) |
 
 ## 📋 当前方案与总览
 
 | 文档 | 角色 |
 |---|---|
-| [plan-v1.8.0.md](./plan-v1.8.0.md) | **当前方案 (唯一 current source of truth)** — v1.8.0: GPT1 四论 + GPT2 一论吸收 (条件化/创新信息收敛) + P5-02M/B-lite v2/P6-04 合并队列 |
+| [plan-v1.9.0.md](./plan-v1.9.0.md) | **当前方案 (唯一 current source of truth)** — v1.9.0: research.md 四方方案全集收敛 (GPT1+Grok1+deepseek+GPT2) |
 | [EXPERIMENT_SUMMARY.md](./EXPERIMENT_SUMMARY.md) | 实验总览汇总 (2026-08-14) — 结果台账 |
 | [exploration-report.md](./exploration-report.md) | 探索全景报告 (2026-08-14) — 方法/原理/效果/失败原因, 覆盖 07-07 起全部尝试 |
 | [data-generation-structure.md](./data-generation-structure.md) | 四文件数据生成结构取证 + 最像比赛 (TATC/DRW) + 最优方案 (2026-08-14) |
@@ -25,6 +38,8 @@
 | P4 (隐藏信息调查) | [p4-hidden-information-report.md](./p4-hidden-information-report.md) (权威报告) · [p4-01a-market-forensics-report.md](./p4-01a-market-forensics-report.md) (三门禁 CONDITIONAL GO) |
 | E 系列 | [e01-e02-e03-results.md](./e01-e02-e03-results.md) (状态条件化 E02 gate True) |
 | P5 Probe 三件套 | [p5a-mag-gate-report.md](./p5a-mag-gate-report.md) (MAG KILL) · [p5b-scfi-report.md](./p5b-scfi-report.md) (SCFI CONTINUE, LGB 强/NN 无) · [p5c-rics-report.md](./p5c-rics-report.md) (RICS KILL) · **[p5-final-decision.md](./p5-final-decision.md) (三 Probe 汇总裁决)** · [p5de-production-verification.md](./p5de-production-verification.md) (P5-D/E: SCFI 生产级确认, RealMLP Δ+0.0040) |
+| P6 / P6R / P7 (生产与终裁) | [p6-production-inference.md](./p6-production-inference.md) (提交候选就绪未提交) · [p6r_experiment_report.md](./p6r_experiment_report.md) (检索残差 KILL) · [p7amp-quick-results.md](./p7amp-quick-results.md) (幅度门控 RED) |
+| EDA 与评审 | [eda-raw-2026-08-15.md](./eda-raw-2026-08-15.md) · [eda-vs-pipeline-2026-08-15.md](./eda-vs-pipeline-2026-08-15.md) · [dataset-sample-walkthrough-2026-08-15.md](./dataset-sample-walkthrough-2026-08-15.md) (4 真实样本) · [gpt-eda-review-2026-08-15.md](./gpt-eda-review-2026-08-15.md) · [gpt1-round2-review-2026-08-15.md](./gpt1-round2-review-2026-08-15.md) · [gpt-review-p5-round-2026-08-15.md](./gpt-review-p5-round-2026-08-15.md) |
 
 ## 📚 方法调研与溯源
 

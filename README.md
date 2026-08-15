@@ -2,7 +2,21 @@
 
 Kaggle 社区赛的个人研究仓库。任务是根据高频行情（market 600s 盘口）、订单和成交数据预测未来价格变化，评价指标为未中心化 cosine similarity。**数据 = 真实市场数据简化抽样**（官方原话），四文件生成结构见 [docs/data-generation-structure.md](docs/data-generation-structure.md)。
 
-> 研究快照：2026-08-14，Public LB **0.142**（#30/107，v8b）。提交冻结中，新候选必须过本地时序验证 + 分布门禁 + 30 秒审计（见 [docs/calibration.md](docs/calibration.md)）。
+> 研究快照：2026-08-15，Public LB **0.142**（#30/107，v8b）。提交冻结中，新候选必须过本地时序验证 + 分布门禁 + 30 秒审计（见 [docs/calibration.md](docs/calibration.md)）。
+
+# Current Research Status
+
+| 项 | 值 |
+|---|---|
+| Best Public LB | **0.142** (#30/107) — v8b (v7 + 外部 lb142 推理包 0.5/0.5) |
+| Best self-developed | RealMLP 152 特征复刻 (v7 融合 0.8/0.2 → LB 0.135) |
+| Current baseline | C4 frozen: 0.63×RMS(RealMLP) + 0.37×RMS(Clean Table) |
+| Current phase | P6 提交候选待拍板 → O→T lag response (GPT P1.5) |
+| Active hypothesis | 条件创新 SCFI (O−E[O\|M]) 双 learner 确认有效 (P5-B/D/E) |
+| 待拍板 | ① P6 提交 (v8b+0.55×RealMLP-C, 期望 0.1423~0.1428) ② P6R-01 ③ 下一步 |
+| Last updated | 2026-08-15 |
+
+→ [Experiment Index](docs/experiment-index.md) · [Research Findings](docs/research-findings.md) · [Failed Experiments](docs/failed-experiments.md) · [Method Map](docs/method-map.md) · [Submission History](submissions/README.md) · [Inventory](docs/experiment-inventory.md)
 
 ## 当前结果
 
@@ -30,17 +44,21 @@ Kaggle 社区赛的个人研究仓库。任务是根据高频行情（market 600
 - **market 600s 序列 = 第二套正交 alpha**：MSE 无信号但 cosine 臂 corr(y)=+0.086、corr(market,v7)=0.49（P5-01）；手工聚合形式无信号（34 特征 −0.0002、P4-06A 残差链断）→ 信息以序列形式存在。
 - 月漂移存在但不可预测（P4-05 决定性负结果）；600s 长上下文解释 LB142 分歧但不解释 y 残差（P4-06A 链条断裂）。
 
-## 当前研究路线（plan-v1.8.0 — GPT1 四论 + GPT2 一论吸收）
+## 当前研究路线（plan-v1.9.0 — research.md 四方方案全集收敛）
 
-> **文档权威链（防误读）**: `README.md`（入口/结果快照）→ `docs/plan-v1.8.0.md`（**路线唯一 current source of truth**，历史版本全部归档于 `docs/_archive/plans/`）→ `docs/EXPERIMENT_SUMMARY.md`（实验结果台账）。路线问题一律以 plan-v1.8.0 为准；plan 状态字段 = "讨论中/执行中/已完成" 三态，无歧义。
+> **文档权威链（防误读）**: `README.md`（入口/结果快照）→ `docs/plan-v1.9.0.md`（**路线唯一 current source of truth**，历史版本全部归档于 `docs/_archive/plans/`）→ `docs/EXPERIMENT_SUMMARY.md`（实验结果台账）。路线问题一律以 plan-v1.9.0 为准。
 
-三方案（GPT1 四论 State-Conditioned MoE / GPT2 一论 Conditional Innovation / 本地 P5-02M 幅度调制）收敛到同一核心：**"实际 − 给定市场状态的期望"（条件化/创新信息）**。合并队列：
+已执行并关闭的路线（2026-08-14/15，详见 docs/experiment-index.md）:
+- **P5-02M 幅度调制 → P5-A MAG-Gate RED**（嵌套 Δ −0.000146）+ **P7-AMP RED**（GPT1 预注册终裁, α=0 单调）→ 幅度门控方向整体关闭
+- **P5-02B-lite → P5-B SCFI CONTINUE**（LGB Δ+0.0075）→ **P5-D/E 生产确认**（RealMLP standalone +0.0040 / blend +0.0014 双窗口一致）→ **P6 生产推理完成, 提交候选就绪（未提交, 等拍板）**
+- **P5-C RICS / SPCE 谱线 RED**（短窗形态 ≤0.011）→ 相位/形状线关闭（TRIS 仅保留 random 臂待定）
+- **P6R-00 检索残差 KILL**（gate 39%）, P6R-01 终裁挂起
 
-1. **P5-02M（S, 30min 零训练）**：market 幅度预测调制 v7（pred' = v7 × (m/median)^γ），41-50 选 γ，51-70 冻结——融合层条件化的零成本验证（D1-D3 诊断已支持）
-2. **P5-02B-lite v2（S, 半天）**：跨源审计——Surprise 家族（5/10/20/30/60s z-score vs 600s）+ Structural（Pressure/Conversion/Capacity/Impact）+ O×T 转化率，双 target（y + |y|），4.7 双轴筛选
-3. **P6-04 hard regime experts（S）**：按市场状态分 3-5 个 regime 各自训练（证明 f_regime1 ≠ f_regime2）
-4. 后置：soft MoE / conditional innovation 条件模型 / SSL 预训练（全部等 1-3 证据）；P6-01 residual target 降 B（与 P5-03 同义，resid probe 预判死）
-5. 停止：TCN 调参 / Transformer / 152 cosine 变体 / RealMLP 搜索 / 换皮 / calibration / ensemble 套娃 / 不经审计直接展开交互或条件模型
+当前队列（plan v1.9.0 §3）:
+1. **O→T lag response（GPT P1.5, 推荐下一步）** — 事件级跨表时序, 152 特征确认无覆盖, 与 P5-02I "跨通道同步是核心" 同源
+2. **P6 提交候选拍板**（v8b + 0.55×RealMLP-C, 双窗口门禁已过）
+3. 后置: ETCI 事件时臂（与 lag response 同源）/ hard regime experts（需重新论证）/ soft MoE / 条件模型完整版（FiLM, 等 SCFI 消化）
+4. 停止（继承）: TCN 调参 / Transformer / 152 cosine 变体 / RealMLP 搜索 / 换皮 / calibration / ensemble 套娃 / **幅度 gate 任何变体** / **残差均值-检索路线** / 不经审计直接展开交互或条件模型
 
 **market 序列建模口径（已统一）**: 200 步 × **18 通道**（11 raw + 7 derived: mid/spread1/depth1/imb1/spread2/depth2/imb2），均匀 3s 网格。⚠️ 历史文档中的 "13ch" 是 P5-01 之前的旧规划残留（当时计划 11 raw + 2 derived），实际实现一律 18ch；market.feather 原始表 13 列 = schema 列数（sample_id + seconds + 11 盘口字段），不是建模通道数。
 
@@ -50,18 +68,26 @@ Kaggle 社区赛的个人研究仓库。任务是根据高频行情（market 600
 .
 ├── scripts/                  # 特征、验证、模型、融合和 Kaggle kernel 脚本（含 p4_*/p5_* 系列）
 ├── src/mscapital/            # 可复用库代码（realmlp.py 等）
-├── tests/                    # 关键运行管线的回归测试
+├── tests/                    # 关键运行管线的回归测试 (112 用例)
+├── experiments/              # 实验逻辑层: registry.csv (71 实验) + 每实验 README (规范 ID/判定/失败分析)
+├── submissions/              # 提交登记表 (LB ↔ 脚本 ↔ 实验 ID 可追溯)
 ├── docs/
 │   ├── README.md             # 文档索引（导航入口）
-│   ├── plan-v1.8.0.md        # 当前方案（唯一 current source of truth, 旧版在 _archive/plans/）
+│   ├── experiment-index.md   # 研究历史总入口 (5 分钟看懂全项目)
+│   ├── research-findings.md  # 已确认结论 (F001~F017)
+│   ├── failed-experiments.md # 失败墓地 (按机制分类, Negative KB)
+│   ├── method-map.md         # 方法地图 (✅/🟡/❌/🧪)
+│   ├── experiment-inventory.md  # 全仓库资产清单
+│   ├── reorganization-report.md # 本整理迁移报告
+│   ├── plan-v1.9.0.md        # 当前方案（唯一 current source of truth, 旧版在 _archive/plans/）
 │   ├── EXPERIMENT_SUMMARY.md # 当前实验总览与决策（结果台账）
 │   ├── data-generation-structure.md  # 四文件生成结构取证 + 最像比赛
 │   ├── calibration.md        # 分模型族校准与提交门禁
 │   └── _archive/             # 历史方案/阶段报告/抓取快照
 ├── research/                 # 方法库（METHODS.md, literature_primer.md）
 ├── configs/                  # 实验配置
-├── output/                   # 训练产物（预测/权重/特征, gitignored, ~15GB）
-├── _archive/                 # 仓库杂物归档（讨论页快照/排行榜 zip）
+├── output/                   # 训练产物（预测/权重/特征, gitignored, ~41GB）
+├── _archive/                 # 仓库杂物归档（arxiv 页面缓存/LB 快照/catboost_info）
 └── RESULTS.md                # 详细实验日志和负面结果库
 ```
 
