@@ -18,6 +18,11 @@
 
 **短窗跨通道形态无信息**: P5-05 RICS (全层 ≤0.011 corr_y, R4 相位 -0.006)
 - "≤10 步形态"不含 alpha; 相位破坏时间反演不变
+
+**跨表时序箭头不存在**: P8-01A (15万样本/71月, 1s bin, z(±1..30s)≈0, A_z 0/71月, placebo 全覆盖)
+- order×tx 的关系是**同期机械重合** (lag=0 z≈0.33: tx 是 order 撮合结果的另一日志视图), 无跨秒滞后响应结构
+- 同期信息已被 152 特征覆盖 (t_vol_sum/t_buy_ratio 等)
+- ❌ 不重复: 跨表时序滞后探针 (O→T lag response); ETCI latency 类需 hazard/background 对照否则只是活动度特征
 - ❌ 不重复: 不做 wavelet/shapelet/spectral CNN 短窗形态
 
 ## 2. 有信息, 但模型无法兑现

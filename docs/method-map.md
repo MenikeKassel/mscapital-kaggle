@@ -102,11 +102,11 @@
 
 ## 未测试方向 (plan v1.9.0 剩余)
 ```
-├── O→T lag response               🧪 GPT P1.5 — 当前唯一推荐 (152 无覆盖)
+├── O→T lag response               ❌ P8-01A 证伪 (2026-08-15: 1s bin 跨秒响应不存在, 0/71月, placebo 全覆盖; 同期 lag=0 是机械重合)
 ├── SPCE 四臂 / TRIS random        🧪 低优先 (P5-05 已弱化谱线)
 ├── hard regime experts            🧪 低优先 (幅度路线已死, 需重新论证)
 ├── soft MoE                       🧪 依赖 P6-04
-├── ETCI 事件时臂                  🧪 中等 (与 lag response 同源)
+├── ETCI 事件时臂                  ⬇️ 降级低优先 (P8-01A 连带: 无 O→T 响应则 latency 类大概率是活动度特征)
 └── P6R-01 终裁                    🧪 挂起等拍板
 ```
 
