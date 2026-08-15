@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "experiment_id_spec_version": "1.0",
+  "generated_at": "2026-08-15",
+  "entries": 82,
+  "series": [
+    "P0",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P6R",
+    "P7",
+    "C",
+    "E",
+    "M",
+    "S"
+  ]
+}

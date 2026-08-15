@@ -10,9 +10,9 @@ Kaggle 社区赛的个人研究仓库。任务是根据高频行情（market 600
 |---|---|
 | Best Public LB | **0.142** (#30/107) — v8b (v7 + 外部 lb142 推理包 0.5/0.5) |
 | Best self-developed | RealMLP 152 特征复刻 (v7 融合 0.8/0.2 → LB 0.135) |
-| Current baseline | C4 frozen: 0.63×RMS(RealMLP) + 0.37×RMS(Clean Table) |
+| Current baseline | C-04 frozen: 0.63×RMS(RealMLP) + 0.37×RMS(Clean Table) |
 | Current phase | P6 提交候选待拍板 → O→T lag response (GPT P1.5) |
-| Active hypothesis | 条件创新 SCFI (O−E[O\|M]) 双 learner 确认有效 (P5-B/D/E) |
+| Active hypothesis | 条件创新 SCFI (O−E[O\|M]) 双 learner 确认有效 (P5-04/D/E) |
 | 待拍板 | ① P6 提交 (v8b+0.55×RealMLP-C, 期望 0.1423~0.1428) ② P6R-01 ③ 下一步 |
 | Last updated | 2026-08-15 |
 
@@ -41,21 +41,21 @@ Kaggle 社区赛的个人研究仓库。任务是根据高频行情（market 600
 - TCN 的 test 预测与表格模型相关性从验证期约 `0.30–0.40` 崩到 `0.03`，即使本地融合增益为正也不能提交。
 - 新方法的价值不仅看单模型分数，还要看跨月稳定性、预测尺度和与现有最佳预测的正交性（评估六维：ΔPSEUDO / corr(new,v7) / corr(new,y) / 月命中率 / regime 稳定 / frozen OOS）。
 - **cosine loss 是真实但小的互补**（严格复刻 +0.001，两次 Public 0.135 自洽）；**验证命题 ≠ 提交命题**（配方/区间/α 三要素）。
-- **market 600s 序列 = 第二套正交 alpha**：MSE 无信号但 cosine 臂 corr(y)=+0.086、corr(market,v7)=0.49（P5-01）；手工聚合形式无信号（34 特征 −0.0002、P4-06A 残差链断）→ 信息以序列形式存在。
-- 月漂移存在但不可预测（P4-05 决定性负结果）；600s 长上下文解释 LB142 分歧但不解释 y 残差（P4-06A 链条断裂）。
+- **market 600s 序列 = 第二套正交 alpha**：MSE 无信号但 cosine 臂 corr(y)=+0.086、corr(market,v7)=0.49（P5-01）；手工聚合形式无信号（34 特征 −0.0002、P4-08 残差链断）→ 信息以序列形式存在。
+- 月漂移存在但不可预测（P4-05 决定性负结果）；600s 长上下文解释 LB142 分歧但不解释 y 残差（P4-08 链条断裂）。
 
 ## 当前研究路线（plan-v1.9.0 — research.md 四方方案全集收敛）
 
 > **文档权威链（防误读）**: `README.md`（入口/结果快照）→ `docs/plan-v1.9.0.md`（**路线唯一 current source of truth**，历史版本全部归档于 `docs/_archive/plans/`）→ `docs/EXPERIMENT_SUMMARY.md`（实验结果台账）。路线问题一律以 plan-v1.9.0 为准。
 
 已执行并关闭的路线（2026-08-14/15，详见 docs/experiment-index.md）:
-- **P5-02M 幅度调制 → P5-A MAG-Gate RED**（嵌套 Δ −0.000146）+ **P7-AMP RED**（GPT1 预注册终裁, α=0 单调）→ 幅度门控方向整体关闭
-- **P5-02B-lite → P5-B SCFI CONTINUE**（LGB Δ+0.0075）→ **P5-D/E 生产确认**（RealMLP standalone +0.0040 / blend +0.0014 双窗口一致）→ **P6 生产推理完成, 提交候选就绪（未提交, 等拍板）**
-- **P5-C RICS / SPCE 谱线 RED**（短窗形态 ≤0.011）→ 相位/形状线关闭（TRIS 仅保留 random 臂待定）
+- **P5-02M 幅度调制 → P5-03 MAG-Gate RED**（嵌套 Δ −0.000146）+ **P7-01 RED**（GPT1 预注册终裁, α=0 单调）→ 幅度门控方向整体关闭
+- **P5-02B-lite → P5-04 SCFI CONTINUE**（LGB Δ+0.0075）→ **P5-06/E 生产确认**（RealMLP standalone +0.0040 / blend +0.0014 双窗口一致）→ **P6 生产推理完成, 提交候选就绪（未提交, 等拍板）**
+- **P5-05 RICS / SPCE 谱线 RED**（短窗形态 ≤0.011）→ 相位/形状线关闭（TRIS 仅保留 random 臂待定）
 - **P6R-00 检索残差 KILL**（gate 39%）, P6R-01 终裁挂起
 
 当前队列（plan v1.9.0 §3）:
-1. **O→T lag response（GPT P1.5, 推荐下一步）** — 事件级跨表时序, 152 特征确认无覆盖, 与 P5-02I "跨通道同步是核心" 同源
+1. **O→T lag response（GPT P1.5, 推荐下一步）** — 事件级跨表时序, 152 特征确认无覆盖, 与 P5-02 "跨通道同步是核心" 同源
 2. **P6 提交候选拍板**（v8b + 0.55×RealMLP-C, 双窗口门禁已过）
 3. 后置: ETCI 事件时臂（与 lag response 同源）/ hard regime experts（需重新论证）/ soft MoE / 条件模型完整版（FiLM, 等 SCFI 消化）
 4. 停止（继承）: TCN 调参 / Transformer / 152 cosine 变体 / RealMLP 搜索 / 换皮 / calibration / ensemble 套娃 / **幅度 gate 任何变体** / **残差均值-检索路线** / 不经审计直接展开交互或条件模型
