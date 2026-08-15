@@ -50,10 +50,26 @@
 - **Q4 MSCapital 上有效的最可能原因**: **preprocessing > optimization > 表示 > backbone** (我们的 152 特征已是强手工表示, 缺的是稳定训练配方)
 - **Q5 延续方向**: 不换大模型, 继续找适合金融 tabular regression 的 recipe (scheduled reg / 周期性 LR / 目标变换)
 
-## 5. 合并后 v2 实验顺序 (E0-E10, 待注册执行)
+## 5. 合并后 v2 实验顺序 (E0-E10 → 项目编号 C-05~C-15)
+
+> ⚠️ **编号映射 (2026-08-15)**: E0-E10 是论文报告的**内部序号** (E = Experiment), 与项目 E 系列 (E-01~E-03 状态条件化) 冲突, 故项目注册一律走 **C 系列** (C-05 起, C 系列 = Clean RealMLP 配方延续)。报告内 E 序号 ≠ 项目 ID。
+
+| 报告序号 | 项目 ID | 内容 |
+|---|---|---|
+| E0 | **C-05** ✅ 已执行 | 冻结 baseline (152 特征 → robust+clip → 3×256 MLP → 纯 MSE) |
+| E1 | C-06 | RobustScaler + Smooth Clip (注: C-01 已内建, 此步为显式对照) |
+| E2 | C-07 | Adam β2 0.999→0.95 |
+| E3 | C-08 | constant LR → cosine decay |
+| E4 | C-09 | Parametric Mish |
+| E5 | C-10 | PL 数值嵌入 |
+| E6 | C-11 | PL → PBLD |
+| E7 | C-12 | Learnable scaling layer |
+| E8 | C-13 | dropout/wd flat_cos 调度 |
+| E9 | C-14 | coslog4 |
+| E10 | C-15 | NTP + 数据驱动 init |
 
 ```text
-E0  冻结 baseline (152 特征 → robust+clip → 3×256 MLP → MSE)
+E0/C-05 冻结 baseline (152 特征 → robust+clip → 3×256 MLP → MSE)
     固定 temporal split/seed/epochs/batch; 记录 CV cosine/MSE/best epoch
     ── 纪律: 训练用 MSE, 验证/选 checkpoint 用 GLOBAL cosine ──
 E1  RobustScaler + Smooth Clip        (极低, 重尾对症, 论文 reg +9.5%)
