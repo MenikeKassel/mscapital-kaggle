@@ -277,3 +277,11 @@ CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和。
 - blend (w 51-60 调): C blendΔ=**+0.001369** (w=0.50 顶网格), corr(C,canon)=0.940; A blendΔ≈0
 - **SCFI 升级门禁通过**: Z 特征在生产 learner 上 standalone +0.0040 / blend +0.0014;
   与 LGB 3-seed (+0.00085 双块正) 跨 learner 双确认; SmallMLP Δ≈0 被推翻 (过弱代理)
+
+## P6 生产推理: RealMLP-C test 预测 + PSEUDO 门禁 (2026-08-15 → docs/p6-production-inference.md)
+
+- **test 预测**: RealMLP(152+Z) 全量 refit (0-70) → 647,896 行, std ratio (test/valid 61-70) = 0.9726 ✓
+- **PSEUDO 门禁** (eval 33-70): RealMLP-C standalone 0.139248 vs canon 0.142550;
+  **blendΔ = +0.001435** (w=0.75 调于 21-32) — 与 R61_70 的 +0.001369 跨窗口一致
+- **生产 blend w = 0.55** (51-60 调, 扩网格后确认, 印证 P5-E 顶格信号)
+- **提交候选**: submission_candidate_p6.csv (v8b + 0.55×RealMLP-C) — **未提交, 等拍板**
