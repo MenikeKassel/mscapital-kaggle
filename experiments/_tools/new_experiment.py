@@ -13,7 +13,7 @@
 """
 import argparse, csv, json, os, re, sys
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 仓库根 (experiments/_tools → ×3)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src"))
 from mscapital.experiment_registry import (
     load_registry, load_meta, allocate_next_id, allocate_next_arm,
