@@ -12,14 +12,14 @@
 | v1 | G3 | LGB+XGB+MLP-ens 0.1/0.4/0.5 | 0.138931 | **0.122** (#79) | 08-11 00:11 | scripts/16_final_submission.py |
 | v2 | H1 | XGB+Cat+MLP 0.1/0.4/0.5 | 0.139332 | **0.122** | 08-11 08:46 | scripts/18_final_submission_v2.py |
 | v3 | P0-03 | temporal 权重重估 | 0.130015 | **0.122** | 08-11 10:43 | scripts/22_final_submission_v3.py |
-| v4 | P0.5-D | R2 归一化 + temporal | +0.0015 | **0.123** ✅ | 08-11 12:08 | scripts/26_final_submission_v4.py |
-| v5 | P1-01c | R2 + 22 微观融合 | 0.134871 | **0.125** ✅ | 08-12 00:15 | scripts/35_final_v5.py |
+| v4 (SUB-v4) | P0.5-D | R2 归一化 + temporal | +0.0015 | **0.123** ✅ | 08-11 12:08 | scripts/26_final_submission_v4.py |
+| v5 (SUB-v5) | P1-01c | R2 + 22 微观融合 | 0.134871 | **0.125** ✅ | 08-12 00:15 | scripts/35_final_v5.py |
 | v6 | P1-02 | 表格 + TCN 0.07 | +0.004 (TCN) | **0.082** ❌ N005 | 08-12 01:38 | scripts/37_final_v6.py |
-| v7 | V7 | v5 + RealMLP 0.8/0.2 | 0.139683 | **0.135** ✅ | 08-12 10:00 | scripts/42_realmlp_fusion.py |
-| v7b | V7 | 0.75/0.25 | — | 0.134 | 08-12 | scripts/42_realmlp_fusion.py |
-| v8a | V8 | v7 + lb142 0.7/0.3 | — | 0.139 | 08-12 13:24 | scripts/43_lb142_fusion.py |
-| **v8b** | V8 | v7 + lb142 **0.5/0.5** | — | **0.142** (#30) ✅ | 08-12 13:24 | scripts/43_lb142_fusion.py |
-| (realmlp 单模) | V7 | RealMLP 单模型 | 0.1439 | 0.134 | 08-12 09:59 | scripts/41_realmlp_local.py |
+| v7 (SUB-v7) | SUB-v7 | v5 + RealMLP 0.8/0.2 | 0.139683 | **0.135** ✅ | 08-12 10:00 | scripts/42_realmlp_fusion.py |
+| v7b (SUB-v7) | SUB-v7 | 0.75/0.25 | — | 0.134 | 08-12 | scripts/42_realmlp_fusion.py |
+| v8a (SUB-v8) | SUB-v8 | v7 + lb142 0.7/0.3 | — | 0.139 | 08-12 13:24 | scripts/43_lb142_fusion.py |
+| **v8b (SUB-v8)** | SUB-v8 | v7 + lb142 **0.5/0.5** | — | **0.142** (#30) ✅ | 08-12 13:24 | scripts/43_lb142_fusion.py |
+| (realmlp 单模) | SUB-v7 | RealMLP 单模型 | 0.1439 | 0.134 | 08-12 09:59 | scripts/41_realmlp_local.py |
 
 **提交轨迹**: 0.122 → 0.123 → 0.125 → 0.135 → 0.142; 排名 #82 → #48 → #30
 **校准纪律**: 本地过 PSEUDO 门禁才占用提交配额; 剩余配额留作最终提交。
@@ -34,10 +34,10 @@
 | b1_official_lgb.csv | B1 | 官方基线复刻 |
 | realmlp_submission.csv | RealMLP 单模 | 08-12 提交 |
 | submission_cbv2_calib.csv | C4 系 | clean baseline v2 校准版 (08-13) |
-| submission_v9_t5r30~t10r50.csv (6) | V8 后 | t5/t10 特征 × ref30/40/50 — **无 LB 记录** ⚠️ |
-| submission_v9_cos_a10~a25.csv (4) | V8 后 | cosine α 变体 — **无 LB 记录** ⚠️ |
-| submission_v9_cos_simple_a10/13.csv (2) | V8 后 | cosine simple 变体 — **无 LB 记录** ⚠️ |
-| submission_v9_cos_solo.csv (1) | V8 后 | cosine solo — **无 LB 记录** ⚠️ |
+| submission_v9_t5r30~t10r50.csv (6) | SUB-v8 后 | t5/t10 特征 × ref30/40/50 — **无 LB 记录** ⚠️ |
+| submission_v9_cos_a10~a25.csv (4) | SUB-v8 后 | cosine α 变体 — **无 LB 记录** ⚠️ |
+| submission_v9_cos_simple_a10/13.csv (2) | SUB-v8 后 | cosine simple 变体 — **无 LB 记录** ⚠️ |
+| submission_v9_cos_solo.csv (1) | SUB-v8 后 | cosine solo — **无 LB 记录** ⚠️ |
 
 > ⚠️ v9 系列 (13 个文件, 08-12/14) 未登记 LB — 若提交过, 请补充数值到本表 + RESULTS.md。
 > 若从未提交, 建议归档到 `output/submissions/_never_submitted/` 防止误用。

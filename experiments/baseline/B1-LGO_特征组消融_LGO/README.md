@@ -1,32 +1,33 @@
-# F2_ens — MLP 30ep×3seed 集成
+# B1-LGO — 特征组消融 LGO
 
 > 阶段: Baseline 表格阶梯 (2026-08-10/11) | 日期: 2026-08-10 | 状态: **GREEN**
+> Alias (历史编号): B1 特征组消融 (RESULTS.md 历史名)
 > 生成: 2026-08-15 仓库工程化整理 (Phase G), 数据来源 RESULTS.md / 各阶段报告
 
 ## 研究问题 (可证伪命题)
-MLP 多 seed 集成能否拉回弱 seed?
+哪组特征贡献最大?
 
 ## Hypothesis
-集成更稳更强
+窗口统计是主力
 
 ## Motivation
-G1
+上一个实验结论
 
 ## Data
-90 features
+90 features 6组
 
 ## Validation Protocol
-CV1
+CV1 逐一移除
 
 ## Method
-3-seed 平均
+leave-one-group-out
 
 ## Baseline / Result / Delta
 | | 值 |
 |---|---|
-| Baseline | 0.1321/0.1298/0.1287 |
-| 实验分数 | 0.133736 |
-| Delta | +0.0017 |
+| Baseline | 0.130204 |
+| 实验分数 | 窗口-0.0102/盘口-0.0042/订单-0.0035/交叉-0.0003/成交-0.0000/EWM+0.0000 |
+| Delta | - |
 | Public LB | - |
 
 ## Decision
@@ -40,9 +41,9 @@ CV1
 
 ## Conclusion / Next
 - Conclusion: 见阶段报告
-- Next: G3
+- Next: B2
 
 ## 复现入口
-- Scripts: `scripts/14_exp_mlp_ens.py`
+- Scripts: `scripts/05_exp_feature_ablation.py`
 - Outputs: `-`
 - Reports: `RESULTS.md`

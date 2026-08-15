@@ -1,48 +1,49 @@
-# C1_feat — 增强窗口特征 90→109
+# E1-TW — 时间衰减加权
 
 > 阶段: Baseline 表格阶梯 (2026-08-10/11) | 日期: 2026-08-10 | 状态: **RED**
+> Alias (历史编号): E1 时间衰减 (与 E01 ReVol-lite 区分)
 > 生成: 2026-08-15 仓库工程化整理 (Phase G), 数据来源 RESULTS.md / 各阶段报告
 
 ## 研究问题 (可证伪命题)
-更多窗口统计特征还有增益吗?
+近期样本加权能否桥接漂移?
 
 ## Hypothesis
-特征工程到顶
+时间衰减有效
 
 ## Motivation
-EDA
+漂移观察
 
 ## Data
-109 features
+90 features
 
 ## Validation Protocol
 CV1
 
 ## Method
-+窗口5/30/300+偏度/分位/比率
+线性2x/3x, 指数温和/强
 
 ## Baseline / Result / Delta
 | | 值 |
 |---|---|
 | Baseline | 0.130204 |
-| 实验分数 | 0.129760 |
-| Delta | -0.0004 |
+| 实验分数 | 0.125001~0.130161 |
+| Delta | - |
 | Public LB | - |
 
 ## Decision
 **RED**
 
 ## Failure Analysis
-特征工程到顶, 90 特征即甜点位
+全部无效或有害: 旧月份数据量价值更大, 漂移不是简单时间距离
 
 ## Do Not Repeat
-不再盲目堆窗口统计特征
+不再试任何时间衰减加权
 
 ## Conclusion / Next
 - Conclusion: 见阶段报告
-- Next: 转向模型侧 (D1)
+- Next: P0-2 对抗验证(解释漂移机制)
 
 ## 复现入口
-- Scripts: `scripts/07_exp_enhanced_windows.py`
+- Scripts: `scripts/09_exp_time_weight.py`
 - Outputs: `-`
 - Reports: `RESULTS.md`

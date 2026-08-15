@@ -19,7 +19,9 @@
 |---|---|
 | `experiments/registry.csv` | 71 个实验总台账 (ID/阶段/数据/方法/协议/分数/判定/脚本/报告/产物) |
 | `experiments/<phase>/<ID>/README.md` | 71 份实验 README (研究问题/Hypothesis/Method/Result/Decision/Failure/DoNotRepeat/Next) |
-| `experiments/_tools/` | experiment_data.py (canonical 映射表) + build_registry.py + build_inventory.py (可重跑) |
+| `experiments/_tools/` | experiment_data.py (canonical 映射表) + build_registry.py + build_inventory.py + fix_ids.py (可重跑) |
+
+**编号体系 (2026-08-15 统一, 消除历史重名)**: `P{n}-{NN}{后缀}` 正式实验 (P0-01, P1-01a, P5-02I, P6R-00, P7-AMP) · 早期表格保留字母序号 (A1~H1), 重名/易混加消歧后缀 (**B1-LGO** vs B1 官方基线, **C1-FE** vs C1 Clean-RealMLP, **E1-TW** vs E01) · 提交事件独立命名空间 **SUB-v4/5/7/8** (与 submissions/README.md 对应) · plan 方案名 (P5-02M/B-lite v2/RICS) 与实际执行 ID (P5-A~E) 映射见 P5_market README · 历史编号全部保留在 registry/README 的 **Alias** 列。
 | `docs/experiment-index.md` | 研究历史总入口 (阶段全表 + 方向汇总 + 状态速览) |
 | `docs/failed-experiments.md` | 失败墓地 — 6 类机制分类 (Negative Knowledge Base) |
 | `docs/research-findings.md` | 已确认结论 F001~F017 (证据→实验→置信度) |

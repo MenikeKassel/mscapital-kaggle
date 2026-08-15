@@ -1,6 +1,7 @@
 # C1 — C1 Clean RealMLP-v2a
 
 > 阶段: C 系列 Clean Baseline v2 (2026-08-13) | 日期: 2026-08-13 | 状态: **GREEN**
+> Alias (历史编号): -
 > 生成: 2026-08-15 仓库工程化整理 (Phase G), 数据来源 RESULTS.md / 各阶段报告
 
 ## 研究问题 (可证伪命题)

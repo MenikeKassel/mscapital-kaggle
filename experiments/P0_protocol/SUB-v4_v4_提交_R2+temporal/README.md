@@ -1,6 +1,7 @@
-# V4 — v4 提交 (R2+temporal)
+# SUB-v4 — v4 提交 (R2+temporal)
 
 > 阶段: P0 Protocol 验证 (2026-08-11) | 日期: 2026-08-11 | 状态: **GREEN**
+> Alias (历史编号): 提交 v4 (RESULTS.md)
 > 生成: 2026-08-15 仓库工程化整理 (Phase G), 数据来源 RESULTS.md / 各阶段报告
 
 ## 研究问题 (可证伪命题)

@@ -1,6 +1,7 @@
 # P0.5-B — MLP Fairness Check (last-epoch bug)
 
 > 阶段: P0 Protocol 验证 (2026-08-11) | 日期: 2026-08-11 | 状态: **SUPERSEDED**
+> Alias (历史编号): -
 > 生成: 2026-08-15 仓库工程化整理 (Phase G), 数据来源 RESULTS.md / 各阶段报告
 
 ## 研究问题 (可证伪命题)

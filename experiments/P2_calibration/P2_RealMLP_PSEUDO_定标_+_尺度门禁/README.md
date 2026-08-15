@@ -1,6 +1,7 @@
-# P2-cal — RealMLP PSEUDO 定标 + 尺度门禁
+# P2 — RealMLP PSEUDO 定标 + 尺度门禁
 
 > 阶段: P2 校准 (2026-08-12) | 日期: 2026-08-12 | 状态: **GREEN**
+> Alias (历史编号): P2 校准 (Codex 阶段)
 > 生成: 2026-08-15 仓库工程化整理 (Phase G), 数据来源 RESULTS.md / 各阶段报告
 
 ## 研究问题 (可证伪命题)

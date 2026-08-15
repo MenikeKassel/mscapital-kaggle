@@ -36,6 +36,7 @@ PHASE_TITLE = {
 README_TEMPLATE = """# {id} — {name}
 
 > 阶段: {phase_title} | 日期: {date} | 状态: **{decision}**
+> Alias (历史编号): {alias}
 > 生成: 2026-08-15 仓库工程化整理 (Phase G), 数据来源 RESULTS.md / 各阶段报告
 
 ## 研究问题 (可证伪命题)
@@ -119,6 +120,7 @@ def main():
         os.makedirs(d, exist_ok=True)
         content = README_TEMPLATE.format(
             id=e["id"], name=e["name"], phase_title=PHASE_TITLE[ph], date=e["date"],
+            alias=e.get("alias", "-"),
             decision=e["decision"], question=e["question"], hypothesis=e["hypothesis"],
             motivation=e["motivation"], data=e["data"], protocol=e["protocol"],
             method=e["method"], baseline=e["baseline"], score=e["score"], delta=e["delta"],

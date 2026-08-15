@@ -1,48 +1,49 @@
-# F1_mlp — 轻量 MLP (90特征)
+# D1 — 超参数单变量
 
 > 阶段: Baseline 表格阶梯 (2026-08-10/11) | 日期: 2026-08-10 | 状态: **YELLOW**
+> Alias (历史编号): D1 超参单变量
 > 生成: 2026-08-15 仓库工程化整理 (Phase G), 数据来源 RESULTS.md / 各阶段报告
 
 ## 研究问题 (可证伪命题)
-表格 NN 能否超越 GBDT?
+官方超参附近单变量调整有无增益?
 
 ## Hypothesis
-MLP 温和超越
+leaves64 小幅提升
 
 ## Motivation
 模型诊断
 
 ## Data
-90 features (NaN→fill)
+90 features
 
 ## Validation Protocol
 CV1
 
 ## Method
-MLP[256x2]
+leaves64/128, lr05, L2_20, minleaf100
 
 ## Baseline / Result / Delta
 | | 值 |
 |---|---|
 | Baseline | 0.130204 |
-| 实验分数 | 0.132065 |
-| Delta | +0.0019 |
+| 实验分数 | 0.130763 |
+| Delta | +0.0006 (leaves64) |
 | Public LB | - |
 
 ## Decision
 **YELLOW**
 
 ## Failure Analysis
-loss 未收敛有空间
+(无 — 实验通过/非失败)
 
 ## Do Not Repeat
 (无特别禁止项)
 
 ## Conclusion / Next
 - Conclusion: 见阶段报告
-- Next: G1 融合
+- Next: E1
 
 ## 复现入口
-- Scripts: `scripts/10_exp_mlp.py`
+- Scripts: `scripts/08_exp_hp_sweep.py`
 - Outputs: `-`
 - Reports: `RESULTS.md`
