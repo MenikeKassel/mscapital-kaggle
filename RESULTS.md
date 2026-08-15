@@ -260,3 +260,20 @@ CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和。
 
 ### 汇总 → docs/p5-final-decision.md
 - 短期: 152+73raw 与 152+Z 重训 LGB 进 blend (半天); 中期: RealMLP 精确 spot-check 决定 SCFI 是否升级
+
+## P5-D/P5-E 生产级验证 (2026-08-15, SCFI 升级裁决 → docs/p5de-production-verification.md)
+
+### P5-D LGB 3-seed + CatBoost 融合验证 (双块, holdout 调权)
+| 臂 | Learner | blendΔ avg | B1 | B2 | 结论 |
+|---|---|---|---|---|---|
+| C (152+Z) | LGB 3seed | **+0.000849** | +0.0013 | +0.0004 | 唯一双块正且最强 → 生产候选 |
+| D (+raw+Z) | CatBoost | +0.000662 | +0.0010 | +0.0004 | CatBoost 最优但绝对弱 |
+| D | LGB | +0.000549 | +0.0012 | −0.0001 | raw 叠加无益 (C 更优) |
+| B (+73raw) | LGB | +0.000448 | +0.0007 | +0.0002 | raw 特征族独立有效 |
+| A | LGB/Cat | ≈0 或负 | — | — | 152-only 无 blend 价值 |
+
+### P5-E RealMLP 生产 learner spot-check (R61_70, inner 0-50/tune 51-60/refit 0-60/outer 61-70)
+- **A (152) = 0.148526** (复现 canonical realmlp 水准 ✓) / **C (152+Z) = 0.152570** → **Δ=+0.004044**
+- blend (w 51-60 调): C blendΔ=**+0.001369** (w=0.50 顶网格), corr(C,canon)=0.940; A blendΔ≈0
+- **SCFI 升级门禁通过**: Z 特征在生产 learner 上 standalone +0.0040 / blend +0.0014;
+  与 LGB 3-seed (+0.00085 双块正) 跨 learner 双确认; SmallMLP Δ≈0 被推翻 (过弱代理)

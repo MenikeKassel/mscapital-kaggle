@@ -21,7 +21,7 @@ market 幅度预测真实存在 (corr 0.43-0.47, P5-02I 复现), 但**无法通�
 (v7 × a_bin(m̂)) 变现为 cosine 增益** — cosine 全局尺度不变, v7 的 |pred| 形状已是
 当前可学最优。**MAG-MoE / 幅度调制完整版 (COC) 关闭。**
 
-### Q2: SCFI 是否成立? → **CONDITIONAL CONTINUE** (P5-B + learner spot-check)
+### Q2: SCFI 是否成立? → **确认 (跨 learner, 2026-08-15 P5-D/E 升级)** (P5-B + 生产级验证)
 
 | 证据 (LGB, 同 learner 对照) | 值 |
 |---|---|
@@ -37,10 +37,18 @@ market 幅度预测真实存在 (corr 0.43-0.47, P5-02I 复现), 但**无法通�
 | ΔC | +0.0011 / −0.0009 → avg **+0.0001** (12/20 月) |
 | NN-C corrCanon / blendΔ | 0.649-0.691 / +0.00096…+0.00145 |
 
+| **生产级验证 (P5-D/P5-E, 2026-08-15)** | 值 |
+|---|---|
+| **RealMLP (生产 learner, R61_70)** | **standalone Δ=+0.0040; blendΔ=+0.0014 (61-70 冻结)** |
+| **LGB 3-seed 集成 (双块)** | **blendΔ avg +0.00085 (B1 +0.0013 / B2 +0.0004)** |
+| CatBoost | blendΔ +0.00016 (弱) |
+
 **结论**: Innovation 特征 (Z = 事件流 − E[事件流|市场状态], MAD 稳健尺度) 对
-**LGB 家族是强增益且稳定** (+0.0075, 17/20 月), 对 **SmallMLP 家族无增益** —
-learner 依赖。加上原始 side×action 聚合特征 (73 个, 独立于 innovation, Arm B
-+0.0058) 本身即新信息面。**条件强度/点过程/FiLM 升级阶梯维持门禁 (未达 LIVE/STRONG)。**
+**LGB 家族是强增益且稳定** (+0.0075, 17/20 月), **在生产 learner (RealMLP) 上确认**
+(+0.0040 standalone / +0.0014 blend)。SmallMLP 的 Δ≈0 被推翻 (过弱代理)。
+SCFI 升级门禁 (§5.14) 通过 — 条件创新表示是 0.142 后第一个跨 learner 验证的新信息面。
+加上原始 side×action 聚合特征 (73 个, 独立于 innovation, Arm B +0.0058) 本身即新特征族。
+**生产推理 (RealMLP 全量 152+Z → blend → PSEUDO 门禁) 为下一步 (需用户拍板)。**
 
 ### Q3: RICS 是否成立? → **KILL** (P5-C)
 
@@ -61,17 +69,12 @@ learner 依赖。加上原始 side×action 聚合特征 (73 个, 独立于 innov
 
 ## 2. 0.142 之后最值得投入的主线
 
-**短期 (低成本, 直接可做):**
-1. **152 + 73 raw O/T 聚合 (side×action 拆分/burstiness/size 分位) 重训 LGB/CatBoost
-   表格模型, 进入 blend** — Arm B LGB 证据 +0.0058 (B1/B2 一致), 特征已落盘
-   (`output/p5b_scfi/raw_ot_agg.parquet`), 半天内可出生产级验证
-2. **152 + Z innovation 重训 LGB 进入 blend** — Arm C +0.0075, blendΔ +0.0009;
-   与 canonical corr 0.87 → 有 blend 价值 (PSEUDO 门禁 + 提交纪律照旧)
-
-**中期 (门禁后):**
-3. **RealMLP 精确 spot-check** (152+Z vs 152, 生产 learner): 决定 SCFI 是否升级 —
-   若 RealMLP 也受益 → conditional intensity 阶梯 (任务书 §5.14) 才值得开
-4. PSEUDO 门禁通过后: 生产推理 (全量重训 + test) + 提交校准 (§7e 纪律)
+**已确认 (P5-D/P5-E 生产级验证, 2026-08-15):**
+1. **152 + Z innovation 特征集 = 跨 learner 验证的新信息面** — RealMLP 生产 learner
+   standalone +0.0040 / blend +0.0014 (61-70 冻结); LGB 3-seed blend +0.00085 (双块正)
+2. **152 + 73 raw O/T 聚合 (side×action 拆分)** — LGB 3-seed blend +0.00045 (双块正)
+3. **下一步: RealMLP 全量重训 (152+Z) → 与 canonical blend (w 网格 0.05-0.7, 51-60 调)
+   → PSEUDO 门禁 + 分布检查 → 提交候选** (提交纪律照旧, 需用户拍板)
 
 ## 3. 应彻底关闭的路线
 
