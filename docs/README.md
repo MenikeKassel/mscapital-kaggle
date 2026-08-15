@@ -43,7 +43,7 @@
 | E 系列 | [e01-e02-e03-results.md](./e01-e02-e03-results.md) (状态条件化 E-02 gate True) |
 | P5 Probe 三件套 | [p5a-mag-gate-report.md](./p5a-mag-gate-report.md) (MAG KILL) · [p5b-scfi-report.md](./p5b-scfi-report.md) (SCFI CONTINUE, LGB 强/NN 无) · [p5c-rics-report.md](./p5c-rics-report.md) (RICS KILL) · **[p5-final-decision.md](./p5-final-decision.md) (三 Probe 汇总裁决)** · [p5de-production-verification.md](./p5de-production-verification.md) (P5-06/E: SCFI 生产级确认, RealMLP Δ+0.0040) |
 | P6 / P6R / P7 (生产与终裁) | [p6-production-inference.md](./p6-production-inference.md) (提交候选就绪未提交) · [p6r_experiment_report.md](./p6r_experiment_report.md) (检索残差 KILL) · [p7amp-quick-results.md](./p7amp-quick-results.md) (幅度门控 RED) |
-| EDA 与评审 | [eda-raw-2026-08-15.md](./eda-raw-2026-08-15.md) · [eda-vs-pipeline-2026-08-15.md](./eda-vs-pipeline-2026-08-15.md) · [dataset-sample-walkthrough-2026-08-15.md](./dataset-sample-walkthrough-2026-08-15.md) (4 真实样本) · [gpt-eda-review-2026-08-15.md](./gpt-eda-review-2026-08-15.md) · [gpt1-round2-review-2026-08-15.md](./gpt1-round2-review-2026-08-15.md) · [gpt-review-p5-round-2026-08-15.md](./gpt-review-p5-round-2026-08-15.md) |
+| EDA 与评审 | [eda-raw-2026-08-15.md](./eda-raw-2026-08-15.md) · [eda-v2-2026-08-15.md](./eda-v2-2026-08-15.md) (重构后重跑 + 互联网方法吸收, micro-gap/CVD/spread_std 新缺口) · [eda-vs-pipeline-2026-08-15.md](./eda-vs-pipeline-2026-08-15.md) · [dataset-sample-walkthrough-2026-08-15.md](./dataset-sample-walkthrough-2026-08-15.md) (4 真实样本) · [gpt-eda-review-2026-08-15.md](./gpt-eda-review-2026-08-15.md) · [gpt1-round2-review-2026-08-15.md](./gpt1-round2-review-2026-08-15.md) · [gpt-review-p5-round-2026-08-15.md](./gpt-review-p5-round-2026-08-15.md) |
 
 ## 📚 方法调研与溯源
 
