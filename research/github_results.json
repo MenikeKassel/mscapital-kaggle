@@ -1,0 +1,333 @@
+{
+ "order flow imbalance": [
+  {
+   "full_name": "shubhamcodez/Market-Impact-Model",
+   "html_url": "https://github.com/shubhamcodez/Market-Impact-Model",
+   "stars": 38,
+   "desc": "The model focuses on predicting the impact of trading activities on stock prices using order flow imbalance, trading volume and price change",
+   "updated": "2026-06-24"
+  },
+  {
+   "full_name": "kostyafarber/crypto-lob-data-pipeline",
+   "html_url": "https://github.com/kostyafarber/crypto-lob-data-pipeline",
+   "stars": 25,
+   "desc": "I built a real-time streaming data pipeline  using kafka, consuming deribit-api-v2 limit order book prices 📈 and transforming them into an o",
+   "updated": "2026-05-14"
+  },
+  {
+   "full_name": "pi-sen/Order-Flow-Imbalance",
+   "html_url": "https://github.com/pi-sen/Order-Flow-Imbalance",
+   "stars": 3,
+   "desc": "",
+   "updated": "2026-08-12"
+  },
+  {
+   "full_name": "twowaymind/orderflow-metrics",
+   "html_url": "https://github.com/twowaymind/orderflow-metrics",
+   "stars": 6,
+   "desc": "Microstructure order-flow metrics — Order Flow Imbalance (OFI), depth and trade imbalance. Dependency-free TypeScript.",
+   "updated": "2026-08-14"
+  },
+  {
+   "full_name": "kanasaisai488/OrderFlowImbalance",
+   "html_url": "https://github.com/kanasaisai488/OrderFlowImbalance",
+   "stars": 3,
+   "desc": "Order Flow Imbalance System",
+   "updated": "2026-03-10"
+  }
+ ],
+ "neural hawkes process": [
+  {
+   "full_name": "hongyuanmei/neurawkes",
+   "html_url": "https://github.com/hongyuanmei/neurawkes",
+   "stars": 228,
+   "desc": "Source code of The Neural Hawkes Process (NIPS 2017)",
+   "updated": "2026-08-11"
+  },
+  {
+   "full_name": "xiao03/nh",
+   "html_url": "https://github.com/xiao03/nh",
+   "stars": 36,
+   "desc": "A PyTorch Implementation of Neural Hawkes Process. Redefined.",
+   "updated": "2026-02-25"
+  },
+  {
+   "full_name": "yangalan123/anhp-andtt",
+   "html_url": "https://github.com/yangalan123/anhp-andtt",
+   "stars": 61,
+   "desc": "Codebase for Attentive Neural Hawkes Process (A-NHP) and Attentive Neural Datalog Through Time (A-NDTT)",
+   "updated": "2026-03-04"
+  },
+  {
+   "full_name": "MorinW/nh",
+   "html_url": "https://github.com/MorinW/nh",
+   "stars": 1,
+   "desc": "A PyTorch Implementation of Neural Hawkes Process. Redefined.",
+   "updated": "2020-07-16"
+  },
+  {
+   "full_name": "sohamch/Neural-Hawkes-study",
+   "html_url": "https://github.com/sohamch/Neural-Hawkes-study",
+   "stars": 11,
+   "desc": "A PyTorch exercise in implementing a continuous time LSTM to simulate Neural Hawkes Process based on the paper by Hongyuan Mei and Jason Eis",
+   "updated": "2025-11-19"
+  }
+ ],
+ "price impact order book events": [
+  {
+   "full_name": "AHBAR-software-TM/price-impact-of-order-book-events",
+   "html_url": "https://github.com/AHBAR-software-TM/price-impact-of-order-book-events",
+   "stars": 0,
+   "desc": "Replication and Cross-Market Analysis of Cont, Kukanov, & Stoikov (2014)  Empirical evaluation of Order Flow Imbalance (OFI), linear/nonline",
+   "updated": "2026-08-10"
+  }
+ ],
+ "tick data hawkes": [
+  {
+   "full_name": "Uncharted1804/microstructure-alpha-engine",
+   "html_url": "https://github.com/Uncharted1804/microstructure-alpha-engine",
+   "stars": 0,
+   "desc": "Tick-level LOB order flow imbalance signal with Kyle's lambda, Hawkes processes, and TC-adjusted backtesting on Binance crypto data",
+   "updated": "2026-07-12"
+  },
+  {
+   "full_name": "robinsdlk1/LOB-Modelling-Hawks",
+   "html_url": "https://github.com/robinsdlk1/LOB-Modelling-Hawks",
+   "stars": 0,
+   "desc": "Numerical illustration of the Bacry, Delattre, Hoffmann & Muzy (2011) Hawkes process model for LOB dynamics, reproducing the paper’s main re",
+   "updated": "2026-07-11"
+  }
+ ],
+ "facebookresearch film": [],
+ "hypernetworks pytorch": [
+  {
+   "full_name": "g1910/HyperNetworks",
+   "html_url": "https://github.com/g1910/HyperNetworks",
+   "stars": 281,
+   "desc": "PyTorch implementation of HyperNetworks (Ha et al., ICLR 2017) for ResNet (Residual Networks)",
+   "updated": "2026-08-07"
+  },
+  {
+   "full_name": "chrhenning/hypnettorch",
+   "html_url": "https://github.com/chrhenning/hypnettorch",
+   "stars": 132,
+   "desc": "Package for working with hypernetworks in PyTorch.",
+   "updated": "2026-03-30"
+  },
+  {
+   "full_name": "shyamsn97/hyper-nn",
+   "html_url": "https://github.com/shyamsn97/hyper-nn",
+   "stars": 107,
+   "desc": "Easy Hypernetworks in Pytorch and Jax",
+   "updated": "2026-07-11"
+  },
+  {
+   "full_name": "JJGO/hyperlight",
+   "html_url": "https://github.com/JJGO/hyperlight",
+   "stars": 43,
+   "desc": "Modular and intuitive Hypernetworks in Pytorch",
+   "updated": "2026-08-06"
+  },
+  {
+   "full_name": "SongjieXie/Hyper-AJSCC",
+   "html_url": "https://github.com/SongjieXie/Hyper-AJSCC",
+   "stars": 26,
+   "desc": "Pytorch implementation of \"Deep Learning-Based Adaptive Joint Source-Channel Coding using Hypernetworks\"",
+   "updated": "2025-12-02"
+  }
+ ],
+ "SPADE semantic image synthesis": [
+  {
+   "full_name": "NVlabs/SPADE",
+   "html_url": "https://github.com/NVlabs/SPADE",
+   "stars": 7714,
+   "desc": "Semantic Image Synthesis with SPADE",
+   "updated": "2026-07-30"
+  },
+  {
+   "full_name": "taki0112/SPADE-Tensorflow",
+   "html_url": "https://github.com/taki0112/SPADE-Tensorflow",
+   "stars": 375,
+   "desc": "Simple Tensorflow implementation of \"Semantic Image Synthesis with Spatially-Adaptive Normalization\" a.k.a. GauGAN, SPADE (CVPR 2019 Oral)",
+   "updated": "2026-05-30"
+  },
+  {
+   "full_name": "divyanshj16/SPADE",
+   "html_url": "https://github.com/divyanshj16/SPADE",
+   "stars": 69,
+   "desc": "\"Semantic Image Synthesis with Spatially-Adaptive Normalization\" paper implementation",
+   "updated": "2025-09-09"
+  },
+  {
+   "full_name": "elvisyjlin/SpatiallyAdaptiveNormalization",
+   "html_url": "https://github.com/elvisyjlin/SpatiallyAdaptiveNormalization",
+   "stars": 33,
+   "desc": "Reproduce the CVPR 2019 oral paper \"Semantic Image Synthesis with Spatially-Adaptive Normalization\"",
+   "updated": "2026-05-07"
+  },
+  {
+   "full_name": "JCPAN7/SPADE-PyTorch",
+   "html_url": "https://github.com/JCPAN7/SPADE-PyTorch",
+   "stars": 0,
+   "desc": "PyTorch unofficial implementation of Semantic Image Synthesis with Spatially-Adaptive Normalization paper by Nvidia Research",
+   "updated": "2019-08-13"
+  }
+ ],
+ "gluonts": [
+  {
+   "full_name": "awslabs/gluonts",
+   "html_url": "https://github.com/awslabs/gluonts",
+   "stars": 5224,
+   "desc": "Probabilistic time series modeling in Python",
+   "updated": "2026-08-14"
+  },
+  {
+   "full_name": "zalandoresearch/pytorch-ts",
+   "html_url": "https://github.com/zalandoresearch/pytorch-ts",
+   "stars": 1370,
+   "desc": "PyTorch based Probabilistic Time Series forecasting framework based on GluonTS backend",
+   "updated": "2026-08-11"
+  },
+  {
+   "full_name": "business-science/modeltime.gluonts",
+   "html_url": "https://github.com/business-science/modeltime.gluonts",
+   "stars": 44,
+   "desc": "GluonTS Deep Learning with Modeltime",
+   "updated": "2026-02-10"
+  },
+  {
+   "full_name": "zmkwjx/GluonTS-Learning-in-Action",
+   "html_url": "https://github.com/zmkwjx/GluonTS-Learning-in-Action",
+   "stars": 25,
+   "desc": "MXNET之GluonTS学习手册",
+   "updated": "2025-08-15"
+  },
+  {
+   "full_name": "rshyamsundar/gluonts-hierarchical-ICML-2021",
+   "html_url": "https://github.com/rshyamsundar/gluonts-hierarchical-ICML-2021",
+   "stars": 40,
+   "desc": "",
+   "updated": "2026-04-20"
+  }
+ ],
+ "tactis time series": [
+  {
+   "full_name": "ServiceNow/TACTiS",
+   "html_url": "https://github.com/ServiceNow/TACTiS",
+   "stars": 140,
+   "desc": "TACTiS-2: Better, Faster, Simpler Attentional Copulas for Multivariate Time Series, from ServiceNow Research",
+   "updated": "2026-05-06"
+  }
+ ],
+ "neural point process": [
+  {
+   "full_name": "dunan/NeuralPointProcess",
+   "html_url": "https://github.com/dunan/NeuralPointProcess",
+   "stars": 89,
+   "desc": "",
+   "updated": "2026-08-05"
+  },
+  {
+   "full_name": "omitakahiro/NeuralNetworkPointProcess",
+   "html_url": "https://github.com/omitakahiro/NeuralNetworkPointProcess",
+   "stars": 65,
+   "desc": "code for \"Fully Neural Network based Model for General Temporal Point Processes\"",
+   "updated": "2026-02-10"
+  },
+  {
+   "full_name": "yanx27/PointASNL",
+   "html_url": "https://github.com/yanx27/PointASNL",
+   "stars": 266,
+   "desc": "PointASNL: Robust Point Clouds Processing using Nonlocal Neural Networks with Adaptive Sampling （CVPR 2020）",
+   "updated": "2026-08-13"
+  },
+  {
+   "full_name": "Daniel-Liu-c0deb0t/Adversarial-point-perturbations-on-3D-objects",
+   "html_url": "https://github.com/Daniel-Liu-c0deb0t/Adversarial-point-perturbations-on-3D-objects",
+   "stars": 42,
+   "desc": "New distributional and shape attacks on neural networks that process 3D point cloud data.",
+   "updated": "2026-04-18"
+  },
+  {
+   "full_name": "guyulongcs/AAAI2021_ANPP",
+   "html_url": "https://github.com/guyulongcs/AAAI2021_ANPP",
+   "stars": 19,
+   "desc": "Attentive Neural Point Processes for Event Forecasting, AAAI 2021",
+   "updated": "2026-03-30"
+  }
+ ],
+ "mixture density network": [
+  {
+   "full_name": "axelbrando/Mixture-Density-Networks-for-distribution-and-uncertainty-estimation",
+   "html_url": "https://github.com/axelbrando/Mixture-Density-Networks-for-distribution-and-uncertainty-estimation",
+   "stars": 363,
+   "desc": "A generic Mixture Density Networks (MDN) implementation for distribution and uncertainty estimation by using Keras (TensorFlow)",
+   "updated": "2026-08-11"
+  },
+  {
+   "full_name": "hardmaru/write-rnn-tensorflow",
+   "html_url": "https://github.com/hardmaru/write-rnn-tensorflow",
+   "stars": 703,
+   "desc": "Generative Handwriting using LSTM Mixture Density Network with TensorFlow",
+   "updated": "2026-05-24"
+  },
+  {
+   "full_name": "sagelywizard/pytorch-mdn",
+   "html_url": "https://github.com/sagelywizard/pytorch-mdn",
+   "stars": 225,
+   "desc": "Mixture Density Networks for PyTorch",
+   "updated": "2026-07-10"
+  },
+  {
+   "full_name": "tonyduan/mixture-density-network",
+   "html_url": "https://github.com/tonyduan/mixture-density-network",
+   "stars": 154,
+   "desc": "Mixture density network implemented in PyTorch.",
+   "updated": "2026-07-10"
+  },
+  {
+   "full_name": "fabiotosi92/SMD-Nets",
+   "html_url": "https://github.com/fabiotosi92/SMD-Nets",
+   "stars": 182,
+   "desc": "SMD-Nets: Stereo Mixture Density Networks",
+   "updated": "2026-08-11"
+  }
+ ],
+ "time series in-context learning": [
+  {
+   "full_name": "EDF-Lab/ts-icl",
+   "html_url": "https://github.com/EDF-Lab/ts-icl",
+   "stars": 121,
+   "desc": "TS-ICL: a Time-Indexed Foundation Model for Time Series Forecasting & Imputation via In-Context Learning                  ",
+   "updated": "2026-07-30"
+  },
+  {
+   "full_name": "aviramom/ts-icl",
+   "html_url": "https://github.com/aviramom/ts-icl",
+   "stars": 1,
+   "desc": "time series in context learning ",
+   "updated": "2026-07-05"
+  },
+  {
+   "full_name": "sibo-cai/TS-ICL",
+   "html_url": "https://github.com/sibo-cai/TS-ICL",
+   "stars": 1,
+   "desc": "An In-Context-Learning based time series foundation model",
+   "updated": "2026-05-30"
+  },
+  {
+   "full_name": "lizhengyang2023/icl-impute",
+   "html_url": "https://github.com/lizhengyang2023/icl-impute",
+   "stars": 0,
+   "desc": "time series imputation models based on in-context-learning ablility",
+   "updated": "2026-05-19"
+  },
+  {
+   "full_name": "tanaya3502/Machine-Learning-Techniques-to-Forecast-Energy-Consumption-Indian-Context",
+   "html_url": "https://github.com/tanaya3502/Machine-Learning-Techniques-to-Forecast-Energy-Consumption-Indian-Context",
+   "stars": 1,
+   "desc": "Machine Learning techniques to forecast India’s energy consumption using Random Forest, ARIMA, and SVM. Research project applying ML models ",
+   "updated": "2026-06-14"
+  }
+ ]
+}

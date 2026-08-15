@@ -1,0 +1,114 @@
+{
+ "1011.6402": {
+  "title": "The Price Impact of Order Book Events",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "10.1093/jjfinec/nbt003",
+  "authors": "Authors:Rama Cont, Arseniy Kukanov, Sasha Stoikov"
+ },
+ "1612.09328": {
+  "title": "The Neural Hawkes Process: A Neurally Self-Modulating Multivariate Point Process",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Hongyuan Mei, Jason Eisner"
+ },
+ "1709.07871": {
+  "title": "FiLM: Visual Reasoning with a General Conditioning Layer",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Ethan Perez, Florian Strub, Harm de Vries, Vincent Dumoulin, Aaron Courville"
+ },
+ "1609.09106": {
+  "title": "HyperNetworks",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:David Ha, Andrew Dai, Quoc V. Le"
+ },
+ "1903.07291": {
+  "title": "Semantic Image Synthesis with Spatially-Adaptive Normalization",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Taesung Park, Ming-Yu Liu, Ting-Chun Wang, Jun-Yan Zhu"
+ },
+ "1704.04110": {
+  "title": "DeepAR: Probabilistic Forecasting with Autoregressive Recurrent Networks",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:David Salinas, Valentin Flunkert, Jan Gasthaus"
+ },
+ "1906.05964": {
+  "title": "Electrical charge state manipulation of single silicon vacancies in a silicon carbide quantum optoelectronic device",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "10.1021/acs.nanolett.9b02774",
+  "authors": "Authors:Matthias Widmann, Matthias Niethammer, Dmitry Yu. Fedyanin, Igor A. Khramtsov, Torsten Rendler, Ian D. Booker, Jawad Ul Hassan, Naoya Morioka, Yu-Chen Chen, Ivan G. Ivanov, Nguyen Tien Son, Takeshi Ohshima, Michel Bockstedte, Adam Gali, Cristian Bonato, Sang-Yun Lee, Jörg Wrachtrup"
+ },
+ "2002.09291": {
+  "title": "Transformer Hawkes Process",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Simiao Zuo, Haoming Jiang, Zichong Li, Tuo Zhao, Hongyuan Zha"
+ },
+ "2102.01286": {
+  "title": "Functional principal component analysis estimator for non-Gaussian data",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Rou Zhong, Shishi Liu, Haocheng Li, Jingxiao Zhang"
+ },
+ "2002.06569": {
+  "title": "Objective barriers to the transport of dynamically active vector fields",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "10.1017/jfm.2020.737",
+  "authors": "Authors:George Haller, Stergios Katsanoulis, Markus Holzner, Bettina Frohnapfel, Davide Gatti"
+ },
+ "2202.03528": {
+  "title": "TACTiS: Transformer-Attentional Copulas for Time Series",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Alexandre Drouin, Étienne Marcotte, Nicolas Chapados"
+ },
+ "2403.12543": {
+  "title": "HCPM: Hierarchical Candidates Pruning for Efficient Detector-Free Matching",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Ying Chen, Yong Liu, Kai Wu, Qiang Nie, Shang Xu, Huifang Ma, Bing Wang, Chengjie Wang"
+ },
+ "1502.04592": {
+  "title": "Hawkes processes in finance",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Emmanuel Bacry, Iacopo Mastromatteo, Jean-François Muzy"
+ },
+ "1808.03668": {
+  "title": "DeepLOB: Deep Convolutional Neural Networks for Limit Order Books",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "10.1109/TSP.2019.2907260",
+  "authors": "Authors:Zihao Zhang, Stefan Zohren, Stephen Roberts"
+ },
+ "2203.01424": {
+  "title": "Ammonia, carbon dioxide and the non-detection of the 2152 cm$^{-1}$ CO band",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "10.1051/0004-6361/202244506",
+  "authors": "Authors:Jiao He, Giulia Perotti, Shahnewaz M. Emtiaz, Francis E. Toriello, Adwin Boogert, Thomas Henning, Gianfranco Vidali"
+ },
+ "1908.03475": {
+  "title": "A Simple Recommender Engine for Matching Final-Year Project Student with Supervisor",
+  "abstract": "Abstract:",
+  "submission_history": "?",
+  "doi": "",
+  "authors": "Authors:Mohammad Hafiz Ismail, Tajul Rosli Razak, Muhamad Arif Hashim, Alif Faisal Ibrahim"
+ }
+}

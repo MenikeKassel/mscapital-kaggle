@@ -1,0 +1,170 @@
+[build-system]
+requires = ["hatchling>=1.26.1"]  # https://github.com/pypa/hatch/issues/1818
+build-backend = "hatchling.build"
+
+[project]
+name = "pytabkit"
+dynamic = ["version"]
+description = 'ML models + benchmark for tabular data classification and regression'
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+keywords = ['tabular data', 'scikit-learn', 'deep learning', 'gradient boosting', 'RealMLP']
+authors = [
+    { name = "David Holzmüller" }, #, email = "a@b.org" },
+    { name = "Léo Grinsztajn" }, #, email = "a@b.org" },
+    { name = "Ingo Steinwart" }, #, email = "a@b.org" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "torch>=2.0",
+    "numpy>=1.25", # hopefully don't need <2.0 anymore?
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+    # these could be made optional with lazy imports
+    # older versions of torchmetrics (<1.2.1) have a bug that makes certain metrics used in TabR slow:
+    # https://github.com/Lightning-AI/torchmetrics/pull/2184
+    "torchmetrics>=1.2.1",
+    # can also install the newer lightning package with more dependencies instead, it will be prioritized
+    "pytorch_lightning>=2.0",
+    "psutil>=5.0",  # used for getting logical CPU count in the sklearn base and for getting process RAM usage
+]
+
+[project.optional-dependencies]
+models = [
+    # use <2.6 for now since it can run into pickling issues with skorch if the skorch version is too old
+    # see https://github.com/skorch-dev/skorch/commit/be93b7769d61aa22fb928d2e89e258c629bfeaf9
+    "torch>=2.0",
+    "xgboost>=2.0",
+    "catboost>=1.2",
+    "lightgbm>=4.1",
+    "xrfm>=0.4.3",  # lower bound is not checked extensively
+    # for rtdl models (MLP, ResNet) but also lightly used in TabR
+    # note that scikit-learn 1.6 needs skorch >= 1.1.0
+    "skorch>=0.15",
+    "dask[dataframe]>=2023", # this is here because of a pandas warning:
+    # "Dask dataframe query planning is disabled because dask-expr is not installed"
+    # "packaging",  # unclear why this is here?
+
+    "tqdm", # for TabM with verbosity >= 1
+
+    # more classification metrics and post-hoc calibrators
+    # not necessary unless these things are actually used
+    "probmetrics>=0.0.1",
+
+    # more powerful pickle, used for file-saving and multiprocessing.
+    # Unfortunately it can't save certain torch objects
+    "dill",
+    # saving objects in yaml/msgpack
+    # needed if used in utils.serialize() / deserialize()
+    "pyyaml>=5.0",
+    "msgpack>=1.0",
+    # apparently msgpack_numpy fixed some bug in using numpy arrays in msgpack?
+    # but apparently it can also cause a bug in ray due to its monkey-patching of msgpack functions# in theory we shouldn't be using if for numpy arrays at the moment, not sure why the need for this occurred
+    # maybe it occurred because we tried to save hyperparameters that were numpy scalars instead of python scalars
+    # "msgpack_numpy>=0.4",
+
+    # this is needed because probmetrics uses unpinned numba,
+    # but for some reason the github actions CI wants to install 0.53.1
+    # which is incompatible with Python 3.11 and 3.12.
+    # 0.59.0 is the lowest version that is compatible with 3.12
+    "numba>=0.59.0",
+]
+autogluon = [
+    "autogluon.tabular[all]>=1.0",
+    "autogluon.multimodal>=1.0",
+]
+extra = [
+    "kditransform>=0.2",
+]
+hpo = [
+    "ConfigSpace>=0.7",
+    "smac>=2.0",
+    "hyperopt>=0.2",
+]
+bench = [
+    "fire", # argparse utilities
+    "ray>=2.8", # parallelization
+    "openml>=0.14", # OpenML data download
+    # ----- UCI import ------
+    "requests>=2.0",
+    "patool>=1.0",
+    "openpyxl>=3.0",
+    "xlrd>=2.0",
+    # ----- plotting -----
+    "matplotlib>=3.0",
+    "tueplots>=0.0.12",
+    "seaborn>=0.0.13",
+    "adjustText>=1.0",
+    "autorank>=1.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "sphinx>=7.0",
+    "myst_parser>=3.0",
+    "sphinx_rtd_theme>=2.0",
+]
+
+[tool.hatch.version]
+path = "pytabkit/__about__.py"
+
+[tool.hatch.envs.default]
+installer = "uv"
+features = ["models", "bench", "autogluon", "extra", "hpo", "dev"]
+
+[tool.hatch.envs.hatch-test]
+installer = "uv"
+features = ["models", "bench", "dev", "hpo"]
+#features = ["models","bench","autogluon","extra","hpo","dev"]
+
+[tool.hatch.build.targets.sdist]
+package = ['pytabkit']
+only-include = ['pytabkit']
+
+[tool.hatch.build.targets.wheel]
+package = ['pytabkit']
+only-include = ['pytabkit']
+
+[project.urls]
+Documentation = "https://github.com/dholzmueller/pytabkit#readme"
+Issues = "https://github.com/dholzmueller/pytabkit/issues"
+Source = "https://github.com/dholzmueller/pytabkit"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+    "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:pytabkit tests}"
+
+[tool.coverage.run]
+source_pkgs = ["pytabkit", "tests"]
+branch = true
+parallel = true
+omit = [
+    "pytabkit/__about__.py",
+]
+
+[tool.coverage.paths]
+models = ["pytabkit/models", "*/pytabkit/pytabkit/models"]
+bench = ["pytabkit/bench", "*/pytabkit/pytabkit/bench"]
+tests = ["tests", "*/pytabkit/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

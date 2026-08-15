@@ -108,7 +108,7 @@ drwxr-xr-x 1 menike 197121 0M  8月 14 17:34 tests
 
 | 区域 | 内容 |
 | -- | -- |
-| research/ | 方法调研: breakthrough-top3, METHODS.md, literature_primer, new-methods-scout, arxiv_*.json, paper_cards/, tmp/ (网页缓存) |
+| research/ | 方法调研: breakthrough-top3, METHODS.md, literature_primer, new-methods-scout, arxiv_*.json, paper_cards/, paper-reading-2026-08/ (RealMLP 论文+代码, 8-15 并入), 溯源核验 (abs_verified/github_results/kg_info, 8-15 并入), tmp/ (网页缓存) |
 | configs/ | 9 个 json: c2 消融 5 + clean-baseline/realmlp/table + m01-a |
 | notebooks/ | 空目录 (比赛未用 notebook) |
 | _archive/ | drw 讨论页, 比赛 zip, arxiv_pages/ (11), lb_snapshots/ (7), catboost_info/, plans/, reports/ |
