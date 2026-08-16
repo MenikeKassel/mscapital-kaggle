@@ -25,6 +25,11 @@
 - ❌ 不重复: 跨表时序滞后探针 (O→T lag response); ETCI latency 类需 hazard/background 对照否则只是活动度特征
 - ❌ 不重复: 不做 wavelet/shapelet/spectral CNN 短窗形态
 
+**micro_price/spread_std 线性信号无残差增量**: GAP-N1N3 (micro_gap 族 4 + spread_std 族 3, PSEUDO Δ=+0.0000, mean +0.000285, T4 单折 +0.0009)
+- EDA 双轨 spearman 有信号 (micro_gap_last vs t +0.050, spread_std vs |t| +0.265), 但残差协议下 PSEUDO 折零增量 — 线性相关已被树模型从现有特征 (m_imb/o_buy_ratio/m_sp 族) 间接捕获
+- T4 单折 +0.0009 是外层最近月折叠的假象 (E-01 同模式), PSEUDO 折 (最贴近 test 位置) 才是裁决
+- ❌ 不重复: 同类"EDA 发现新线性相关 → 补列走残差门禁"的预期 (线性相关 ≠ 残差增量; EDA 信号先过残差 probe 再立项)
+
 ## 2. 有信息, 但模型无法兑现
 
 **序列模型 test 分布外退化**: P1-02 TCN → **v6 提交 LB 0.082** (N005, 全项目最惨教训)

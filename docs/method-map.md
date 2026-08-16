@@ -30,6 +30,7 @@
 ├── market-only 序列               🟡 P5-01 ~+0.0005 (大部分已在聚合特征)
 ├── 600s 长上下文                  ✅ P4-01a H4 直接证据
 ├── market history 聚合特征        🟡 P4-17 ~+0.0005
+├── micro_price / spread_std 族    ❌ GAP-N1N3 (EDA 线性信号 → 残差零增量, PSEUDO +0.0000)
 ├── mid_range/mid_std 变体         ❌ P7-01 (对 cosine 无用)
 └── TCN 序列模型                   ❌ v6 0.082 灾难 (N005)
 ```
