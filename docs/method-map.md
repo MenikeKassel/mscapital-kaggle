@@ -113,4 +113,17 @@
 
 ---
 
+## P9-Lite 归因 (2026-08-20): cancel / event-time / M55
+```text
+├── 撤单侧拆不对称 Cancel Pressure (F1侧)  🟡 P9-A-LITE +0.0041 frozen (20/20聚合/13/20月Δ)
+│     → 真实有效但 regime 集中: hi_act +0.0103 / low_act −0.0064 → 非 clean GREEN, 进联合/校准
+│     → 与 Z 绿灯同源 (Z_ob_cancel_side_imb), 152 基线无 side-split 撤单
+├── 事件时距原始聚合 (iat/burst/recent-prev) ❌ P9-B-LITE −0.0039 frozen (RED, 基线已覆盖)
+│     → 152 已含 o_*_near_far / t_*_gap / rowcount_near_far; 原始聚合冗余有害
+│     → 事件节奏须经 Z 式 market/tx 条件化才有效 (Z 绿灯), 原始形式无增量
+└── M55-lite (L1/L2 DWI + trade entropy)  🟡 P9-C-LITE +0.0005 frozen (YELLOW, 进联合)
+```
+
+---
+
 → 实验索引: [experiment-index.md](./experiment-index.md) → 失败墓地: [failed-experiments.md](./failed-experiments.md)

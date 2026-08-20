@@ -24,10 +24,13 @@
 - O→T 跨表时序 (P8-01A, 0/71月), NCL 误差互补 (P9-NC, err_corr≈0.99), 残差五连杀, gate/幅度调制 (P7-01), 无监督表示 (P3 系列), 短窗形态 (P5-05)…
 - **M2 事件/跳跃结构 (P10-FM market, −0.0002)**
 - **TX H1/H2/H3 分段聚合+大单拆分 (P10-FM transaction, −0.0032; 22/38 月正但整体负)** — 与 M-01 一致: tx 聚合形态已到顶
+- **P9-B 事件时距原始聚合 (P9-LITE, frozen −0.0039): 152 基线已含事件节奏 (gap/near-far 行数比), 未经条件化的 iat/burst 冗余有害 — 事件节奏须 Z 式条件化才兑现 (Z 绿灯)**
 
 ### 待验证 (按预期价值 × 成本排序)
 | # | 假设 | 依据 | 成本 | 状态 |
 |---|---|---|---|---|
+| H14 | 撤单侧拆压力 (P9-A-LITE) 联合/校准验证 | frozen **+0.0041** 单测真实, 但 regime 集中 (hi_act +0.0103 / low_act −0.0064); 与 Z 同源 (Z_ob_cancel_side_imb), 建议 cancel-activity 条件化或 NEUT 式校准 | 1-2×训练 GPU | 🧪 联合验证 (非 clean GREEN) |
+| H15 | M55-lite (P9-C-LITE: L1/L2 DWI + trade entropy) | frozen +0.0005, 12/20 月Δ正, 方向稳定 | 1×训练 GPU | 🧪 进联合实验 |
 | H5 | C 系列 E3-E10: cosine decay → Parametric Mish → PL → PBLD → scaling layer → scheduled reg → coslog4 → NTP/init | 论文 20 步消融 (Tier 1-2); 每个预期 +0.0005~0.0015 | 8×12min GPU | ⏳ C-08~C-15 已注册 |
 | H6 | neutralization 叠加到生产融合 (v7/v8b OOF) | H1 在 C-05 上 +0.0014; 零成本后处理 | 30min | 🔄 本轮 |
 | H7 | 5-model refit ensemble (论文 B.3: reg 8.7% error reduction) | 论文集成增益 > 任何单组件且正交 | 5×训练 | 🧪 |
