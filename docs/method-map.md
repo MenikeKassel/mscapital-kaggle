@@ -115,9 +115,9 @@
 
 ## P9-Lite 归因 (2026-08-20): cancel / event-time / M55
 ```text
-├── 撤单侧拆不对称 Cancel Pressure (F1侧)  ✅ P9-A-LITE + H14-V1: 3-seed 均值 +0.0071 frozen (3/3 seed 正)
-│     → 稳健 GREEN 候选, 进候选链/联合验证; 与 Z 绿灯同源 (Z_ob_cancel_side_imb)
-│     → 单 seed regime 集中是噪声 (双区均值皆正); hard-mask 低撤单样本修复被证伪
+├── 撤单侧拆不对称 Cancel Pressure (F1侧)  ✅ 归因闭环 (P9-A H14-V1 3-seed +0.0071 真实; V2 三方确认 cancel ⊂ Z)
+│     → 不做独立生产特征 (替代差一半 / 叠加 J−Z −0.0008); 生产资产=152+73Z; A 价值=Z 的可解释成分
+│     → 单 seed regime 集中是噪声; hard-mask 修复被证伪 (数据见 failed-experiments)
 ├── 事件时距原始聚合 (iat/burst/recent-prev) ❌ P9-B-LITE −0.0039 frozen (RED, 基线已覆盖)
 │     → 152 已含 o_*_near_far / t_*_gap / rowcount_near_far; 原始聚合冗余有害
 │     → 事件节奏须经 Z 式 market/tx 条件化才有效 (Z 绿灯), 原始形式无增量
