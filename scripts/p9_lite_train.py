@@ -88,12 +88,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pkg", choices=["A", "B", "C"], required=True)
     ap.add_argument("--arm", choices=["base", "feat"], required=True)
+    ap.add_argument("--seed", type=int, default=2026)
+    ap.add_argument("--file", default=None, help="覆盖特征文件路径 (默认 pkg{train_aug}.parquet)")
+    ap.add_argument("--tag", default=None, help="输出目录后缀 (区分变体, 防止覆盖 canonical)")
     args = ap.parse_args()
 
-    outd = f"{OUT}/pkg{args.pkg}/{args.arm}"
+    outd = f"{OUT}/pkg{args.pkg}/{args.arm}" \
+        + ("_s" + str(args.seed) if args.seed != 2026 else "") \
+        + (("_" + args.tag) if args.tag else "")
     os.makedirs(outd, exist_ok=True)   # 必须先于训练循环存在 (best_cos.pt 落盘)
     t0 = time.time()
-    path = f"{FEAT}/pkg{args.pkg}/train_aug.parquet"
+    path = args.file or f"{FEAT}/pkg{args.pkg}/train_aug.parquet"
     df = pl.read_parquet(path)
     lab = pl.read_ipc(f"{RAW}/label.feather")
     df = df.join(lab.select(["sample_id", "month"]), on="sample_id", how="left")
@@ -118,7 +123,7 @@ def main():
     X_tr = np.nan_to_num(X_tr, nan=0.0, posinf=0.0, neginf=0.0)
     X_ev = np.nan_to_num(X_ev, nan=0.0, posinf=0.0, neginf=0.0)
 
-    set_seed(SEED)
+    set_seed(args.seed)
     model = MLP(X_tr.shape[1], HIDDEN).to(DEVICE)
     opt = torch.optim.AdamW(model.parameters(), lr=LR, betas=(0.9, 0.999), weight_decay=0.0)
     lossf = nn.MSELoss()
@@ -169,9 +174,9 @@ def main():
     for mm in range(33, 71):
         (months_pos if mc.get(mm, 0) > 0 else months_neg).append(mm)
 
-    outd = f"{OUT}/pkg{args.pkg}/{args.arm}"
     results = {
-        "pkg": args.pkg, "arm": args.arm, "n_feat": len(feat_cols),
+        "pkg": args.pkg, "arm": args.arm, "seed": args.seed, "n_feat": len(feat_cols),
+        "feat_file": path,
         "train_months": "0-32", "eval_months": "33-70",
         "best_cosine_epoch": best_cos_ep, "best_cosine_eval33_70": cos_eval,
         "frozen51_70_cosine": cos_fr, "frozen51_70_pos_months": pos_fr,

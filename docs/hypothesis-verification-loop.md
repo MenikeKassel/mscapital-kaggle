@@ -29,7 +29,7 @@
 ### 待验证 (按预期价值 × 成本排序)
 | # | 假设 | 依据 | 成本 | 状态 |
 |---|---|---|---|---|
-| H14 | 撤单侧拆压力 (P9-A-LITE) 联合/校准验证 | frozen **+0.0041** 单测真实, 但 regime 集中 (hi_act +0.0103 / low_act −0.0064); 与 Z 同源 (Z_ob_cancel_side_imb), 建议 cancel-activity 条件化或 NEUT 式校准 | 1-2×训练 GPU | 🧪 联合验证 (非 clean GREEN) |
+| H14 | **撤单侧拆不对称 (P9-A/H14-V1)** | **3-seed 均值 frozen +0.0071 (3/3 seed 正)**; regime 分裂多为 seed 噪声, 双区均值皆正; 与 Z 同源 (Z_ob_cancel_side_imb) | 已验证 → 进候选链/联合验证 | ✅ **GREEN 候选** |
 | H15 | M55-lite (P9-C-LITE: L1/L2 DWI + trade entropy) | frozen +0.0005, 12/20 月Δ正, 方向稳定 | 1×训练 GPU | 🧪 进联合实验 |
 | H5 | C 系列 E3-E10: cosine decay → Parametric Mish → PL → PBLD → scaling layer → scheduled reg → coslog4 → NTP/init | 论文 20 步消融 (Tier 1-2); 每个预期 +0.0005~0.0015 | 8×12min GPU | ⏳ C-08~C-15 已注册 |
 | H6 | neutralization 叠加到生产融合 (v7/v8b OOF) | H1 在 C-05 上 +0.0014; 零成本后处理 | 30min | 🔄 本轮 |
