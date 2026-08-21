@@ -109,14 +109,14 @@
 ├── soft MoE                       🧪 依赖 P6-04
 ├── ETCI 事件时臂                  ⬇️ 降级低优先 (P8-01A 连带: 无 O→T 响应则 latency 类大概率是活动度特征)
 ├── P6R-01 终裁                    🧪 挂起等拍板
-└── BLSM 交易行为隐状态建模        🧪 新提案 2026-08-21 (AFAC2026 迁移评审, 见 docs/blsm-proposal.md)
+└── BLSM 交易行为隐状态建模        🟢 G0 EXIST 2026-08-21 (见 docs/blsm-g0-report.md; 行为状态存在, 待 G1 增量验证)
       ├── B5 Absorption (Flow×MarketResponse)  ✅ 零先例, 最优先 G0 (absorption 无 registry 命中)
-      ├── B6 Resiliency (冲击后 depth/spread/mid recovery)  ✅ 零先例, 与 B5 同列 G0
+      ├── B6 Resiliency (冲击后 depth/spread/mid recovery)  ✅ 零先例, G0 完成: depth 恢复是 PC1 主载荷
       ├── z_M ⊙ z_B 交互项 (行为×市场状态)     🧪 未测 (SCFI 条件化是先例思想, 乘法交互本身未测)
       ├── B3 Liquidity Provision/Withdrawal(补充) 🧪 补充维度 0 条; 撤单侧已被 P9-A 归因闭合
       ├── B4 Cancel→Repost/PriceResponse 条件化 ⚠️ 高覆盖风险 (cancel ⊂ Z 已闭合), 除非条件化形式
       └── B1 Aggressiveness / B2 Persistence    🔴 与 P9-B Event-Time RED 高度重叠, 原始统计不重跑
-      └── 顺序纪律: G0 existence → G1 inc-info → G2 interaction → G3 impact → 才考虑深层序列
+      └── 顺序纪律: G0 existence ✅ → G1 inc-info → G2 interaction → G3 impact → 才考虑深层序列
 ```
 
 ---
