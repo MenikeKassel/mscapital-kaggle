@@ -60,6 +60,7 @@ MISSING = [
     {"experiment_id": "S-10", "title": "Z 线重跑提交", "name": "submission-z-rerun", "phase": "S_submissions", "status": "completed", "decision": "YELLOW", "parent": "P10-04", "successor": "", "score": "N/A", "delta": "N/A", "public_lb": "0.141", "conclusion": "Z 线重跑低于 external lb142 但高于纯原创锚点", "failure_reason": "", "do_not_repeat": "", "script_path": "scripts/p6_prod_realmlp.py", "report_path": "docs/p6-production-inference.md#rerun", "artifact_path": "output/submissions/z-rerun", "source_refs": "kaggle:Z-rerun-LB-0.141"},
     {"experiment_id": "S-11", "title": "P6-ORIG 纯原创提交", "name": "submission-p6-original", "phase": "S_submissions", "status": "completed", "decision": "GREEN", "parent": "P6-03", "successor": "", "score": "N/A", "delta": "N/A", "public_lb": "0.132", "conclusion": "纯原创基准提交，作为 self-owned anchor", "failure_reason": "", "do_not_repeat": "", "script_path": "scripts/p6_orig_submit.py", "report_path": "docs/p6-production-inference.md#orig-submit", "artifact_path": "output/submissions/p6-orig", "source_refs": "kaggle:55657080|LB:0.132"},
 ]
+BACKFILL_IDS = tuple(x["experiment_id"] for x in MISSING)
 
 def _pipe_paths(value: str) -> str:
     if not value:
@@ -72,7 +73,7 @@ def _pipe_paths(value: str) -> str:
     value = re.sub(r"\s+", "|", value)
     value = re.sub(r"\|(?=\*)", "|", value)
     value = re.sub(r"\|(?=(?:scripts|docs|output|src|processed)/)", "|", value)
-    return value.strip("|")
+    return value.strip(" |")
 
 def _report(value: str) -> str:
     if not value:
@@ -86,10 +87,13 @@ def _route(cid: str, row: dict) -> str:
     if cid in LEGACY or cid.startswith(("B", "A", "F", "G", "H")):
         return "R01-table-baseline"
     if cid.startswith("P0-"): return "R02-r2-drift"
+    if cid == "P1-05": return "R05-sequence"
     if cid.startswith("P1-"): return "R03-micro-primitives"
+    if cid.startswith("C-") and cid not in {"C-01", "C-02", "C-03", "C-04"}: return "R17-realmlp-recipe"
     if cid.startswith(("P2-", "C-")): return "R04-realmlp-clean"
     if cid.startswith("P3-"): return "R08-unsupervised-latent"
     if cid.startswith("P4-"): return "R09-hidden-information"
+    if cid in {"M-02", "M-03", "M-04"} or cid == "P5-05": return "R12-geometry-signature"
     if cid.startswith("M-"): return "R06-m-residual"
     if cid.startswith("E-"): return "R07-state-conditioned"
     if cid.startswith("P5-"): return "R11-scfi-z"
@@ -100,6 +104,7 @@ def _route(cid: str, row: dict) -> str:
         return "R15-p9-quant" if cid in {"P9-01", "P9-02", "P9-03"} else "R16-cancel-eventtime"
     if cid.startswith("P10-"): return "R11-scfi-z"
     if cid.startswith("P11-"): return "R18-blsm"
+    if cid == "S-08": return "R19-production-calibration"
     if cid.startswith("S-"): return "R20-submissions"
     return "R01-table-baseline"
 
@@ -149,6 +154,8 @@ def load_rows() -> list[dict]:
         row = dict(src)
         row["experiment_id"] = cid
         row["id_status"] = "legacy" if cid in LEGACY else "canonical"
+        for rel in ("parent", "successor"):
+            row[rel] = "|".join(OLD_TO_NEW.get(x, x) for x in (row.get(rel, "") or "").split("|") if x)
         if old_id != cid:
             aliases = [x for x in (src.get("aliases", "").split("|") + [old_id]) if x and x != cid]
             row["aliases"] = "|".join(dict.fromkeys(aliases))
@@ -186,15 +193,18 @@ def load_rows() -> list[dict]:
         row["failure_category"] = _failure_category(cid, row, evidence)
         row["provenance_state"] = "historical" if cid in LEGACY or cid in OLD_TO_NEW else ("verified" if row.get("source_refs") else "partial")
         row.setdefault("source_refs", "")
+        if not row.get("source_refs"):
+            row["source_refs"] = f"RESULTS.md#{cid}"
         if not row.get("created_at"): row["created_at"] = "2026-08-21"
         # Missing historical facts are explicit, never inferred.  Non-model
         # records use N/A; model/ablation/ensemble records use unknown.
         fact_default = "unknown" if row["record_kind"] in {"model", "ablation", "ensemble", "feature"} else "N/A"
         for key in ("objective", "validation", "baseline_score", "score", "delta"):
-            if not row.get(key): row[key] = fact_default
+            if not row.get(key) or (fact_default == "unknown" and row.get(key) == "N/A"): row[key] = fact_default
         if not row.get("public_lb"): row["public_lb"] = "N/A"
         for c in NEW_COLUMNS:
             row.setdefault(c, "")
+    assert len(MISSING) == 11
     assert len(rows) == 116, len(rows)
     assert sum(r["id_status"] == "legacy" for r in rows) == 15
     return [{c: r.get(c, "") for c in NEW_COLUMNS} for r in rows]

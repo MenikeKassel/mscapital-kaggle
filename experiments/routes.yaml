@@ -51,8 +51,7 @@
       "P1-01",
       "P1-02",
       "P1-03",
-      "P1-04",
-      "P1-05"
+      "P1-04"
     ],
     "terminal_reason": "N/A",
     "do_not_repeat": "N/A",
@@ -68,18 +67,7 @@
       "C-01",
       "C-02",
       "C-03",
-      "C-04",
-      "C-05",
-      "C-06",
-      "C-07",
-      "C-08",
-      "C-09",
-      "C-10",
-      "C-11",
-      "C-12",
-      "C-13",
-      "C-14",
-      "C-15"
+      "C-04"
     ],
     "terminal_reason": "N/A",
     "do_not_repeat": "N/A",
@@ -90,7 +78,9 @@
     "title": "TCN/序列模型",
     "state": "closed",
     "outcome": "TCN catastrophic LB and weak stable evidence",
-    "evidence_ids": [],
+    "evidence_ids": [
+      "P1-05"
+    ],
     "terminal_reason": "model_saturation",
     "do_not_repeat": "see route outcome; do not retune closed family",
     "next_gate": "R06-m-residual"
@@ -102,9 +92,6 @@
     "outcome": "all residual families are insufficient for the gate",
     "evidence_ids": [
       "M-01",
-      "M-02",
-      "M-03",
-      "M-04",
       "M-05",
       "M-06",
       "M-07"
@@ -193,7 +180,6 @@
       "P5-02",
       "P5-03",
       "P5-04",
-      "P5-05",
       "P5-06",
       "P5-07",
       "P10-01",
@@ -213,7 +199,12 @@
     "title": "Geometry/RICS/Signature",
     "state": "closed",
     "outcome": "M02/M03/M04 below gate; no extension",
-    "evidence_ids": [],
+    "evidence_ids": [
+      "M-02",
+      "M-03",
+      "M-04",
+      "P5-05"
+    ],
     "terminal_reason": "insufficient",
     "do_not_repeat": "see route outcome; do not retune closed family",
     "next_gate": "R18-blsm"
@@ -282,7 +273,19 @@
     "title": "RealMLP recipe 组合",
     "state": "candidate",
     "outcome": "ParamMish/PL/PBLD/schedreg/coslog4 are candidate components",
-    "evidence_ids": [],
+    "evidence_ids": [
+      "C-05",
+      "C-06",
+      "C-07",
+      "C-08",
+      "C-09",
+      "C-10",
+      "C-11",
+      "C-12",
+      "C-13",
+      "C-14",
+      "C-15"
+    ],
     "terminal_reason": "N/A",
     "do_not_repeat": "N/A",
     "next_gate": "R18-blsm"
@@ -304,7 +307,9 @@
     "title": "生产校准和 Kaggle submission",
     "state": "external",
     "outcome": "external lb142 and self-owned anchors separated",
-    "evidence_ids": [],
+    "evidence_ids": [
+      "S-08"
+    ],
     "terminal_reason": "N/A",
     "do_not_repeat": "N/A",
     "next_gate": "N/A"
@@ -318,7 +323,6 @@
       "S-04",
       "S-05",
       "S-07",
-      "S-08",
       "S-01",
       "S-02",
       "S-03",

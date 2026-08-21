@@ -29,12 +29,12 @@
 | 2026-08-11 | P1-02 | R03-micro-primitives | validated | drift 轴 ΔAUC +0.0168 ⚠️ 需第二轮归一化; 净效果为正 |
 | 2026-08-11 | P1-03 | R03-micro-primitives | validated | Δ=+0.0036 (PSEUDO) → GREEN |
 | 2026-08-11 | P1-04 | R03-micro-primitives | negative | 不再对微观特征做第二轮相对化 |
-| 2026-08-11 | P1-05 | R03-micro-primitives | negative | 不再用序列模型做生产融合 (除非 test 侧 corr 结构验证) |
+| 2026-08-11 | P1-05 | R05-sequence | negative | 不再用序列模型做生产融合 (除非 test 侧 corr 结构验证) |
 | 2026-08-11 | S-04 | R20-submissions | validated | Δ=- → GREEN |
 | 2026-08-11 | S-05 | R20-submissions | validated | Δ=- → GREEN |
 | 2026-08-12 | P2-01 | R04-realmlp-clean | validated | Δ=+0.0048 → GREEN |
 | 2026-08-12 | S-07 | R20-submissions | validated | Δ=+0.010 (LB) → GREEN |
-| 2026-08-12 | S-08 | R20-submissions | validated | Δ=+0.007 → GREEN |
+| 2026-08-12 | S-08 | R19-production-calibration | validated | Δ=+0.007 → GREEN |
 | 2026-08-13 | C-01 | R04-realmlp-clean | validated | Δ=- → GREEN |
 | 2026-08-13 | C-02 | R04-realmlp-clean | validated | Δ=+ → GREEN |
 | 2026-08-13 | C-03 | R04-realmlp-clean | validated | Δ=+0.000180 → GREEN |
@@ -43,8 +43,8 @@
 | 2026-08-13 | E-02 | R07-state-conditioned | descriptive | 窗口内可解释 ≠ 跨月可预测增量 (负面链 #2) |
 | 2026-08-13 | E-03 | R07-state-conditioned | descriptive | Δ=- → GREEN |
 | 2026-08-13 | M-01 | R06-m-residual | insufficient | 事件流特征无残差增量 |
-| 2026-08-13 | M-02 | R06-m-residual | insufficient | 几何特征无残差增量 |
-| 2026-08-13 | M-04 | R06-m-residual | insufficient | 签名特征无残差增量 |
+| 2026-08-13 | M-02 | R12-geometry-signature | insufficient | 几何特征无残差增量 |
+| 2026-08-13 | M-04 | R12-geometry-signature | insufficient | 签名特征无残差增量 |
 | 2026-08-13 | M-05 | R06-m-residual | insufficient | 交互特征无残差增量 |
 | 2026-08-13 | M-06 | R06-m-residual | insufficient | 状态检索无残差增量 (P6R 前身) |
 | 2026-08-13 | M-07 | R06-m-residual | not_identifiable | 截面结构不可用 |
@@ -67,12 +67,12 @@
 | 2026-08-14 | P5-02 | R11-scfi-z | validated | Δ=- → GREEN |
 | 2026-08-14 | P5-03 | R11-scfi-z | negative | 不再做简单 volatility/幅度 gate; 不再细扫 α∈[0,1] |
 | 2026-08-14 | P5-04 | R11-scfi-z | validated | NN spot-check 无增益 (learner 依赖: LGB 特异) |
-| 2026-08-14 | P5-05 | R11-scfi-z | negative | 不再做 wavelet/shapelet/spectral CNN 短窗形态 |
+| 2026-08-14 | P5-05 | R12-geometry-signature | negative | 不再做 wavelet/shapelet/spectral CNN 短窗形态 |
 | 2026-08-14 | P6R-00 | R13-p6r-production | negative | 不再做检索-残差预测路线 |
-| 2026-08-15 | C-05 | R04-realmlp-clean | validated | plain 3x256 MLP + robust+clip + 纯 MSE 基线成立; 选 checkpoint 指标 (cosine vs MSE) 在 PSEUDO fold 无差异 (同 epoch 12) |
-| 2026-08-15 | C-06 | R04-realmlp-clean | validated | 无 robust+clip (StandardScaler) 比 C-05 差 -0.0011 → 预处理组件有真实价值 (论文 reg +9.5% 方向一致) |
-| 2026-08-15 | C-07 | R04-realmlp-clean | validated | β2=0.95 小幅提升 +0.0009 (论文 +22.8% 量级未复现, 方向一致) |
-| 2026-08-15 | M-03 | R06-m-residual | insufficient | 几何特征线整体关闭 |
+| 2026-08-15 | C-05 | R17-realmlp-recipe | validated | plain 3x256 MLP + robust+clip + 纯 MSE 基线成立; 选 checkpoint 指标 (cosine vs MSE) 在 PSEUDO fold 无差异 (同 epoch 12) |
+| 2026-08-15 | C-06 | R17-realmlp-recipe | validated | 无 robust+clip (StandardScaler) 比 C-05 差 -0.0011 → 预处理组件有真实价值 (论文 reg +9.5% 方向一致) |
+| 2026-08-15 | C-07 | R17-realmlp-recipe | validated | β2=0.95 小幅提升 +0.0009 (论文 +22.8% 量级未复现, 方向一致) |
+| 2026-08-15 | M-03 | R12-geometry-signature | insufficient | 几何特征线整体关闭 |
 | 2026-08-15 | P4-02 | R09-hidden-information | validated | Δ=? → YELLOW |
 | 2026-08-15 | P4-03 | R09-hidden-information | validated | Δ=? → YELLOW |
 | 2026-08-15 | P4-04 | R09-hidden-information | validated | Δ=? → YELLOW |
@@ -93,14 +93,14 @@
 | 2026-08-15 | S-02 | R20-submissions | validated | Δ=? → YELLOW |
 | 2026-08-15 | S-03 | R20-submissions | validated | Δ=? → YELLOW |
 | 2026-08-15 | S-06 | R20-submissions | negative | 序列模型不通过 test 侧 corr 结构验证不得进生产融合 |
-| 2026-08-16 | C-08 | R04-realmlp-clean | negative | cosine decay (1→0) 在 30ep 短训练下为负 -0.0009: 后期 LR 过低学不动, best ep 9 早停; 论文 +13.5% 是 256ep+meta-tuned LR 的结论, 短训练协议不适用 |
-| 2026-08-16 | C-09 | R04-realmlp-clean | validated | Parametric Mish 大增益 +0.0091 (论文 reg +4.8% 相对误差, 我们更强): ReLU 死区在 robust+clip 数据上代价高, 参数化激活修复它 |
-| 2026-08-16 | C-10 | R04-realmlp-clean | validated | PL 数值嵌入最大增益 +0.0120 (论文最大组件 +20.6% 复现): 周期特征表达力强, 152→608 维 |
-| 2026-08-16 | C-11 | R04-realmlp-clean | validated | PBLD +0.0093 略低于 PL 0.0026 (论文 PL≈PBLD 预期, 简化版参数更少) |
-| 2026-08-16 | C-12 | R04-realmlp-clean | negative | Learnable scaling layer -0.0008: robust+clip 已归一化, 软特征选择无增量; lr×6 下早停 ep9 |
-| 2026-08-16 | C-13 | R04-realmlp-clean | validated | dropout0.15+wd0.02 flat_cos 调度 +0.0058 (论文 constant 反而差 +3.6% 复现): 前稳后松的正则化节奏有效 |
-| 2026-08-16 | C-14 | R04-realmlp-clean | validated | coslog4 周期调度 +0.0021 (论文 ns +0.4%, 我们更明显): 4 周期重启跳出局部最优, best ep 23 持续学习 |
-| 2026-08-16 | C-15 | R04-realmlp-clean | negative | NT 参数化+数据驱动 init 灾难 -0.0375: NTK 改变梯度尺度, 与 LR=1e-3 不匹配 (论文配 lr=0.2+256ep+coslog4); best ep 28 持续爬升, 30ep 远不够 → 组件交互案例, NT 非独立组件 |
+| 2026-08-16 | C-08 | R17-realmlp-recipe | negative | cosine decay (1→0) 在 30ep 短训练下为负 -0.0009: 后期 LR 过低学不动, best ep 9 早停; 论文 +13.5% 是 256ep+meta-tuned LR 的结论, 短训练协议不适用 |
+| 2026-08-16 | C-09 | R17-realmlp-recipe | validated | Parametric Mish 大增益 +0.0091 (论文 reg +4.8% 相对误差, 我们更强): ReLU 死区在 robust+clip 数据上代价高, 参数化激活修复它 |
+| 2026-08-16 | C-10 | R17-realmlp-recipe | validated | PL 数值嵌入最大增益 +0.0120 (论文最大组件 +20.6% 复现): 周期特征表达力强, 152→608 维 |
+| 2026-08-16 | C-11 | R17-realmlp-recipe | validated | PBLD +0.0093 略低于 PL 0.0026 (论文 PL≈PBLD 预期, 简化版参数更少) |
+| 2026-08-16 | C-12 | R17-realmlp-recipe | negative | Learnable scaling layer -0.0008: robust+clip 已归一化, 软特征选择无增量; lr×6 下早停 ep9 |
+| 2026-08-16 | C-13 | R17-realmlp-recipe | validated | dropout0.15+wd0.02 flat_cos 调度 +0.0058 (论文 constant 反而差 +3.6% 复现): 前稳后松的正则化节奏有效 |
+| 2026-08-16 | C-14 | R17-realmlp-recipe | validated | coslog4 周期调度 +0.0021 (论文 ns +0.4%, 我们更明显): 4 周期重启跳出局部最优, best ep 23 持续学习 |
+| 2026-08-16 | C-15 | R17-realmlp-recipe | negative | NT 参数化+数据驱动 init 灾难 -0.0375: NTK 改变梯度尺度, 与 LR=1e-3 不匹配 (论文配 lr=0.2+256ep+coslog4); best ep 28 持续爬升, 30ep 远不够 → 组件交互案例, NT 非独立组件 |
 | 2026-08-16 | P10-01 | R11-scfi-z | invalid | 生产提交必须用与定标同源的模型 (同协议同 checkpoint 选择); 全量训练需留验证窗口定标 γ |
 | 2026-08-20 | P9-04 | R16-cancel-eventtime | validated | 侧拆撤单不对称(流动性撤退)真实有效: +0.0041 frozen / 20-20 聚合月正 / 13-20 月Δ正, 但 regime 集中 (hi_act +0.0103 / low_act -0.0064) → 非 clean GREEN, 进联合/校准验证; 与 Z 绿灯同源 (Z_ob_cancel_side_imb) 互为归因 |
 | 2026-08-20 | P9-05 | R16-cancel-eventtime | negative | 原始 iat/burst 聚合负增益; 152 基线已含事件节奏 (o_*_near_far / t_*_gap / rowcount_near_far), 未条件化原始聚合为冗余噪声变体; 事件节奏信息存在须经 Z 式 market/tx 条件化 (Z 绿灯), 原始形式无增量 |

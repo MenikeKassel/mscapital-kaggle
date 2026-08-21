@@ -35,6 +35,7 @@ def test_ids_and_alias_migration():
     assert len({r["experiment_id"] for r in REG}) == 116
     expected = {"P8-01A": "P8-01", "P9-NC": "P9-01", "P9-NEUT": "P9-02", "P9-DG": "P9-03", "P10-PROD-RQ": "P10-01", "P6-R20260821": "P6-02", "BLSM-G0": "P11-01"}
     for old, new in expected.items(): assert resolve_experiment_id(old, REG) == new
+    assert {r["experiment_id"] for r in REG if r["experiment_id"] in {"P8-02", "P10-02", "P10-03", "P10-04", "P10-05", "P10-06", "P10-07", "P6-03", "S-09", "S-10", "S-11"}} == {"P8-02", "P10-02", "P10-03", "P10-04", "P10-05", "P10-06", "P10-07", "P6-03", "S-09", "S-10", "S-11"}
 
 def test_taxonomy_enums_and_route_coverage():
     for r in REG:
@@ -85,9 +86,20 @@ def test_routes_and_submissions_reference_existing_ids():
     routes = json.loads(open(os.path.join(ROOT, "experiments", "routes.yaml"), encoding="utf-8").read())
     assert len(routes) == 20
     assert all(set(x["evidence_ids"]).issubset(ids) for x in routes)
+    by = {x["route_id"]: x for x in routes}
+    assert by["R05-sequence"]["evidence_ids"] == ["P1-05"]
+    assert set(by["R12-geometry-signature"]["evidence_ids"]) == {"M-02", "M-03", "M-04", "P5-05"}
+    assert by["R17-realmlp-recipe"]["evidence_ids"]
+    assert by["R19-production-calibration"]["evidence_ids"] == ["S-08"]
+    assert by["R18-blsm"]["state"] == "active"
     with open(os.path.join(ROOT, "submissions", "registry.csv"), encoding="utf-8-sig", newline="") as f:
         subs = list(csv.DictReader(f))
     assert len(subs) >= 11 and all(s["experiment_id"] in ids for s in subs)
+
+def test_generated_views_are_fresh():
+    import subprocess
+    p = subprocess.run([sys.executable, os.path.join(ROOT, "experiments", "_tools", "build_project_views.py"), "--check"], cwd=ROOT, capture_output=True, text=True)
+    assert p.returncode == 0, p.stderr or p.stdout
 
 def test_audit_is_clean():
     a = audit_registry(REG, ROOT)
