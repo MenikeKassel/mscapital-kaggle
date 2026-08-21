@@ -110,4 +110,4 @@
 ## 附: 脚本与复现
 
 - 取证脚本: `scripts/zz_forensics_datagen.py` (3000 样本采样, ~3 分钟)
-- 数据: `D:\mscapital-forecasting\data\raw\{train,test}\{market,order,transaction,label}.feather`
+- 数据: `<local-path>,test}\{market,order,transaction,label}.feather`

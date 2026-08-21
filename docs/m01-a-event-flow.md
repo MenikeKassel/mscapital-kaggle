@@ -19,9 +19,9 @@ raw Feather files rather than the small-array Python grouping reference:
 
 ```powershell
 python -m mscapital build-event-flow `
-  --order D:/data/raw/train/order.feather `
-  --transaction D:/data/raw/train/transaction.feather `
-  --labels D:/data/raw/train/label.feather `
+  --order <local-path> `
+  --transaction <local-path> `
+  --labels <local-path> `
   --output output/m01a_features/event_flow_train.parquet
 ```
 

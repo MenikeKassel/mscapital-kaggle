@@ -1,0 +1,338 @@
+[
+  {
+    "route_id": "R01-table-baseline",
+    "title": "表格 baseline 与树模型融合",
+    "state": "frozen",
+    "outcome": "Clean Table lineage is historical anchor",
+    "evidence_ids": [
+      "B0",
+      "B1",
+      "A1",
+      "A2",
+      "B1-LGO",
+      "B2",
+      "C1-FE",
+      "D1",
+      "E1-TW",
+      "F1",
+      "F2",
+      "G1",
+      "G2",
+      "G3",
+      "H1"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "R04-realmlp-clean"
+  },
+  {
+    "route_id": "R02-r2-drift",
+    "title": "R2 漂移归一化",
+    "state": "frozen",
+    "outcome": "R2 retained in 152+73Z",
+    "evidence_ids": [
+      "P0-01",
+      "P0-02",
+      "P0-03",
+      "P0-04",
+      "P0-05",
+      "P0-06"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "R04-realmlp-clean"
+  },
+  {
+    "route_id": "R03-micro-primitives",
+    "title": "22 个微观 primitive",
+    "state": "frozen",
+    "outcome": "micro features absorbed into frozen asset",
+    "evidence_ids": [
+      "P1-01",
+      "P1-02",
+      "P1-03",
+      "P1-04"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "R04-realmlp-clean"
+  },
+  {
+    "route_id": "R04-realmlp-clean",
+    "title": "RealMLP 与 Clean Baseline",
+    "state": "frozen",
+    "outcome": "Clean Baseline v2 frozen",
+    "evidence_ids": [
+      "P2-01",
+      "C-01",
+      "C-02",
+      "C-03",
+      "C-04"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "R17-realmlp-recipe"
+  },
+  {
+    "route_id": "R05-sequence",
+    "title": "TCN/序列模型",
+    "state": "closed",
+    "outcome": "TCN catastrophic LB and weak stable evidence",
+    "evidence_ids": [
+      "P1-05"
+    ],
+    "terminal_reason": "model_saturation",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R06-m-residual"
+  },
+  {
+    "route_id": "R06-m-residual",
+    "title": "M01–M06 residual representation",
+    "state": "closed",
+    "outcome": "all residual families are insufficient for the gate",
+    "evidence_ids": [
+      "M-01",
+      "M-05",
+      "M-06",
+      "M-07"
+    ],
+    "terminal_reason": "insufficient",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R12-geometry-signature"
+  },
+  {
+    "route_id": "R07-state-conditioned",
+    "title": "E01–E03 状态条件化",
+    "state": "closed",
+    "outcome": "E01 positive but PSEUDO below gate; E02/E03 diagnostic",
+    "evidence_ids": [
+      "E-01",
+      "E-02",
+      "E-03"
+    ],
+    "terminal_reason": "insufficient",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R18-blsm"
+  },
+  {
+    "route_id": "R08-unsupervised-latent",
+    "title": "P3 无监督/latent",
+    "state": "closed",
+    "outcome": "SAE/TinyLOBERT/grid/NHP no stable gain",
+    "evidence_ids": [
+      "P3-01",
+      "P3-02",
+      "P3-03",
+      "P3-04",
+      "P3-05"
+    ],
+    "terminal_reason": "model_saturation",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R18-blsm"
+  },
+  {
+    "route_id": "R09-hidden-information",
+    "title": "P4 隐藏信息与协议审计",
+    "state": "external",
+    "outcome": "LB142 forensic and market history evidence",
+    "evidence_ids": [
+      "P4-01",
+      "P4-02",
+      "P4-03",
+      "P4-04",
+      "P4-05",
+      "P4-06",
+      "P4-07",
+      "P4-08",
+      "P4-09",
+      "P4-10",
+      "P4-11",
+      "P4-12",
+      "P4-13",
+      "P4-14",
+      "P4-15",
+      "P4-16",
+      "P4-17"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "R20-submissions"
+  },
+  {
+    "route_id": "R10-amplitude-gate",
+    "title": "幅度/confidence gate",
+    "state": "closed",
+    "outcome": "outer gate non-positive",
+    "evidence_ids": [
+      "P7-01"
+    ],
+    "terminal_reason": "objective_mismatch",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R11-scfi-z"
+  },
+  {
+    "route_id": "R11-scfi-z",
+    "title": "SCFI/Z 条件创新",
+    "state": "frozen",
+    "outcome": "152+73Z is production asset; P10 RQ run invalid",
+    "evidence_ids": [
+      "P5-01",
+      "P5-02",
+      "P5-03",
+      "P5-04",
+      "P5-06",
+      "P5-07",
+      "P10-01",
+      "P10-02",
+      "P10-03",
+      "P10-04",
+      "P10-05",
+      "P10-06",
+      "P10-07"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "R20-submissions"
+  },
+  {
+    "route_id": "R12-geometry-signature",
+    "title": "Geometry/RICS/Signature",
+    "state": "closed",
+    "outcome": "M02/M03/M04 below gate; no extension",
+    "evidence_ids": [
+      "M-02",
+      "M-03",
+      "M-04",
+      "P5-05"
+    ],
+    "terminal_reason": "insufficient",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R18-blsm"
+  },
+  {
+    "route_id": "R13-p6r-production",
+    "title": "P6R residual retrieval",
+    "state": "closed",
+    "outcome": "positive but below gate; P6-ORIG anchor retained",
+    "evidence_ids": [
+      "P6-01",
+      "P6R-00",
+      "P6R-01",
+      "P6-02",
+      "P6-03"
+    ],
+    "terminal_reason": "insufficient",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R20-submissions"
+  },
+  {
+    "route_id": "R14-o-to-t",
+    "title": "P8 O→T 时序",
+    "state": "closed",
+    "outcome": "no reproducible lead-lag",
+    "evidence_ids": [
+      "P8-01",
+      "P8-02"
+    ],
+    "terminal_reason": "nonstationarity",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R15-p9-quant"
+  },
+  {
+    "route_id": "R15-p9-quant",
+    "title": "P9 quant neutralization/V-REx/NCL",
+    "state": "closed",
+    "outcome": "neutralization insufficient; NCL/V-REx negative",
+    "evidence_ids": [
+      "P9-01",
+      "P9-02",
+      "P9-03"
+    ],
+    "terminal_reason": "objective_mismatch",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R16-cancel-eventtime"
+  },
+  {
+    "route_id": "R16-cancel-eventtime",
+    "title": "Cancel/Event-Time/M55",
+    "state": "closed",
+    "outcome": "Cancel absorbed by Z; Event-Time negative; M55 and neutralization insufficient",
+    "evidence_ids": [
+      "P9-04",
+      "P9-05",
+      "P9-06",
+      "P9-07",
+      "P9-08"
+    ],
+    "terminal_reason": "redundancy",
+    "do_not_repeat": "see route outcome; do not retune closed family",
+    "next_gate": "R18-blsm"
+  },
+  {
+    "route_id": "R17-realmlp-recipe",
+    "title": "RealMLP recipe 组合",
+    "state": "candidate",
+    "outcome": "ParamMish/PL/PBLD/schedreg/coslog4 are candidate components",
+    "evidence_ids": [
+      "C-05",
+      "C-06",
+      "C-07",
+      "C-08",
+      "C-09",
+      "C-10",
+      "C-11",
+      "C-12",
+      "C-13",
+      "C-14",
+      "C-15"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "R18-blsm"
+  },
+  {
+    "route_id": "R18-blsm",
+    "title": "BLSM behavior state",
+    "state": "active",
+    "outcome": "G0 validates behavior latent existence; G1 pre-registered",
+    "evidence_ids": [
+      "P11-01"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "R17-realmlp-recipe"
+  },
+  {
+    "route_id": "R19-production-calibration",
+    "title": "生产校准和 Kaggle submission",
+    "state": "external",
+    "outcome": "external lb142 and self-owned anchors separated",
+    "evidence_ids": [
+      "S-08"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "N/A"
+  },
+  {
+    "route_id": "R20-submissions",
+    "title": "Kaggle submissions",
+    "state": "frozen",
+    "outcome": "submission ledger is evidence-only",
+    "evidence_ids": [
+      "S-04",
+      "S-05",
+      "S-07",
+      "S-01",
+      "S-02",
+      "S-03",
+      "S-06",
+      "S-09",
+      "S-10",
+      "S-11"
+    ],
+    "terminal_reason": "N/A",
+    "do_not_repeat": "N/A",
+    "next_gate": "N/A"
+  }
+]

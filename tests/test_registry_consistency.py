@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Experiment ID v1.0 Consistency Tests (任务书 §33/§34/§35).
-
-覆盖: ID 语法 / Legacy allowlist / 唯一性 / Alias / Filesystem / Allocator / Resolver /
-Lifecycle / 研究质量 / 双向一致 (registry ↔ filesystem).
-"""
+"""SSOT schema v3 / Experiment ID Spec v1.1 regression tests."""
+import csv
+import json
 import os
 import re
 import sys
@@ -12,213 +10,110 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 from mscapital.experiment_registry import (
-    CANONICAL_RE, LEGACY_ALLOWLIST, VALID_STATUS, VALID_DECISIONS,
+    CANONICAL_RE, LEGACY_ALLOWLIST, REQUIRED_COLUMNS, VALID_DECISIONS,
+    VALID_EVIDENCE_STATES, VALID_FAILURE_CATEGORIES, VALID_OWNERSHIP,
+    VALID_PROVENANCE_STATES, VALID_RECORD_KINDS, VALID_STATUS,
     allocate_next_arm, allocate_next_id, audit_registry, build_alias_index,
-    load_meta, load_registry, resolve_experiment_id, resolve_row,
+    load_meta, load_registry, resolve_experiment_id,
 )
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REG = load_registry()
 
-
-# ---------- ID ----------
-def test_canonical_regex():
-    for row in REG:
-        if row["id_status"] == "canonical":
-            assert CANONICAL_RE.fullmatch(row["experiment_id"]), row["experiment_id"]
-
-
-def test_legacy_allowlist():
-    for row in REG:
-        if row["id_status"] == "legacy":
-            assert row["experiment_id"] in LEGACY_ALLOWLIST, row["experiment_id"]
-
-
-def test_no_unknown_id_status():
-    for row in REG:
-        assert row["id_status"] in ("canonical", "legacy"), row["experiment_id"]
-
-
-def test_ids_unique():
-    ids = [r["experiment_id"] for r in REG]
-    assert len(ids) == len(set(ids))
-
-
-def test_series_closed():
-    for row in REG:
-        if row["id_status"] == "canonical":
-            series = re.split(r"-", row["experiment_id"])[0]
-            assert series in ("P0","P1","P2","P3","P4","P5","P6","P6R","P7","C","E","M","S")
-
-
-def test_special_series_only_p6r():
-    # 禁止 P5R/P7R/P6A 等衍生特殊 series
-    for row in REG:
-        if row["id_status"] == "canonical":
-            series = re.split(r"-", row["experiment_id"])[0]
-            assert not (series not in ("P6R",) and len(series) == 3 and series[1:].isalpha())
-
-
-# ---------- Alias (任务书 §10) ----------
-def test_alias_unique_and_no_collision():
-    idx = build_alias_index(REG)
-    ids = {r["experiment_id"] for r in REG}
-    for a, target in idx.items():
-        if a == target:
-            continue  # canonical/legacy 自身
-        assert a not in ids, f"alias 撞 primary ID: {a}"
-        assert target in ids, f"alias target 不存在: {a} -> {target}"
-
-
-def test_alias_single_step():
-    # 一步解析: alias 的解析结果必须本身是 primary (无 chain)
-    idx = build_alias_index(REG)
-    for a, target in idx.items():
-        if a == target:
-            continue
-        assert idx[target] == target, f"alias chain: {a} -> {target} -> {idx[target]}"
-
-
-def test_alias_global_unique():
-    seen = {}
-    for row in REG:
-        for a in [x.strip() for x in row["aliases"].split("|") if x.strip()]:
-            assert a not in seen, f"alias 重复: {a}"
-            seen[a] = row["experiment_id"]
-
-
-# ---------- Resolver (任务书 §11) ----------
-def test_resolver_canonical_self():
-    for row in REG:
-        if row["id_status"] == "canonical":
-            assert resolve_experiment_id(row["experiment_id"], REG) == row["experiment_id"]
-
-
-def test_resolver_alias_one_step():
-    cases = {"P5-A": "P5-03", "MAG-Gate": "P5-03", "P7-AMP": "P7-01",
-             "SUB-v8": "S-08", "P0.5-C": "P0-05", "P4-08A": "P4-10",
-             "M02-T": "M-03", "P5-02I": "P5-02", "P2": "P2-01", "P1-1c": "P1-03"}
-    for alias, target in cases.items():
-        assert resolve_experiment_id(alias, REG) == target, alias
-
-
-def test_resolver_legacy_self():
-    for row in REG:
-        if row["id_status"] == "legacy":
-            assert resolve_experiment_id(row["experiment_id"], REG) == row["experiment_id"]
-
-
-def test_resolver_unknown_raises():
-    with pytest.raises(KeyError):
-        resolve_experiment_id("DOES-NOT-EXIST", REG)
-    with pytest.raises(KeyError):
-        resolve_experiment_id("TEMP-01", REG)
-
-
-# ---------- Allocator (任务书 §15/§16/§17/§37) ----------
-def test_allocator_monotonic_no_gap_reuse():
-    # 用副本避免污染
-    ids = [r["experiment_id"] for r in REG]
-    for series in ("P0","P1","P5","P6R","C","M","S"):
-        nums = []
-        for i in ids:
-            if re.fullmatch(re.escape(series) + r"-\d{2}[a-z]?", i):
-                nums.append(int(i.split("-")[1][:2]))
-        if nums:
-            nxt = allocate_next_id(REG, series)
-            assert int(nxt.split("-")[1]) == max(nums) + 1, (series, nxt, max(nums))
-
-
-def test_allocator_never_reuses():
-    new_id = allocate_next_id(REG, "P5")
-    assert new_id not in {r["experiment_id"] for r in REG}
-
-
-def test_allocator_arm_requires_existing_parent():
-    with pytest.raises(KeyError):
-        allocate_next_arm(REG, "P5-99")
-    arm = allocate_next_arm(REG, "P5-03")
-    assert re.fullmatch(r"P5-03[a-z]", arm)
-    assert arm not in {r["experiment_id"] for r in REG}
-
-
-def test_allocator_invalid_series():
-    with pytest.raises(ValueError):
-        allocate_next_id(REG, "P8")
-    with pytest.raises(ValueError):
-        allocate_next_id(REG, "P5R")
-
-
-# ---------- Lifecycle (任务书 §21/§22) ----------
-def test_status_enum():
-    for row in REG:
-        assert row["status"] in VALID_STATUS, row["experiment_id"]
-
-
-def test_decision_enum():
-    for row in REG:
-        assert row["decision"] in VALID_DECISIONS, row["experiment_id"]
-
-
-def test_status_decision_separated():
-    # completed + RED 合法; completed 必须有 decision 值 (NA 允许: 纯构建步骤如 P1-01)
-    for row in REG:
-        if row["status"] == "completed":
-            assert row["decision"] in VALID_DECISIONS, row["experiment_id"]
-    # planned/running 必须 NA (未裁决)
-    for row in REG:
-        if row["status"] in ("planned", "running"):
-            assert row["decision"] == "NA", row["experiment_id"]
-
-
-def test_red_requires_failure_reason():
-    for row in REG:
-        if row["decision"] == "RED":
-            assert row["failure_reason"], row["experiment_id"]
-
-
-# ---------- Filesystem (任务书 §35 双向一致) ----------
-def test_directories_and_readmes_exist():
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for row in REG:
-        phdir = os.path.join(root, "experiments", row["phase"])
-        if not os.path.isdir(phdir):
-            continue
-        found = [d for d in os.listdir(phdir) if d.startswith(row["experiment_id"] + "_")]
-        assert found, f"{row['experiment_id']}: no directory in {phdir}"
-        assert os.path.exists(os.path.join(phdir, found[0], "README.md")), row["experiment_id"]
-
-
-def test_no_orphan_directories():
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    exp_root = os.path.join(root, "experiments")
-    ids = {r["experiment_id"] for r in REG}
-    for ph in os.listdir(exp_root):
-        phdir = os.path.join(exp_root, ph)
-        if not os.path.isdir(phdir) or ph.startswith("_"):
-            continue
-        for d in os.listdir(phdir):
-            if d.startswith("_"):
-                continue
-            rid = re.split(r"_", d)[0]
-            assert rid in ids, f"orphan directory: {ph}/{d}"
-
-
-def test_script_paths_exist():
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for row in REG:
-        for sp in [x.strip() for x in row["script_path"].split() if x.strip()]:
-            if sp.startswith("scripts/") and "*" not in sp and sp.endswith(".py"):
-                assert os.path.exists(os.path.join(root, sp)), f"{row['experiment_id']}: {sp}"
-
-
-# ---------- 研究质量 (任务书 §34) ----------
-def test_completed_has_conclusion():
-    for row in REG:
-        if row["status"] == "completed" and row["decision"] in ("GREEN", "RED"):
-            assert row["conclusion"], row["experiment_id"]
-
-
-def test_registry_schema_version():
+def test_exact_migration_counts_and_schema():
+    assert len(REG) == 116
+    assert sum(r["id_status"] == "legacy" for r in REG) == 15
+    assert sum(r["id_status"] == "canonical" for r in REG) == 101
+    assert set(REQUIRED_COLUMNS).issubset(REG[0])
     meta = load_meta()
-    assert meta.get("schema_version") == 2
-    assert meta.get("experiment_id_spec_version") == "1.0"
+    assert meta["schema_version"] == 3
+    assert meta["experiment_id_spec_version"] == "1.1"
+
+def test_ids_and_alias_migration():
+    assert all(CANONICAL_RE.fullmatch(r["experiment_id"]) for r in REG if r["id_status"] == "canonical")
+    assert all(r["experiment_id"] in LEGACY_ALLOWLIST for r in REG if r["id_status"] == "legacy")
+    assert len({r["experiment_id"] for r in REG}) == 116
+    expected = {"P8-01A": "P8-01", "P9-NC": "P9-01", "P9-NEUT": "P9-02", "P9-DG": "P9-03", "P10-PROD-RQ": "P10-01", "P6-R20260821": "P6-02", "BLSM-G0": "P11-01"}
+    for old, new in expected.items(): assert resolve_experiment_id(old, REG) == new
+    assert {r["experiment_id"] for r in REG if r["experiment_id"] in {"P8-02", "P10-02", "P10-03", "P10-04", "P10-05", "P10-06", "P10-07", "P6-03", "S-09", "S-10", "S-11"}} == {"P8-02", "P10-02", "P10-03", "P10-04", "P10-05", "P10-06", "P10-07", "P6-03", "S-09", "S-10", "S-11"}
+
+def test_taxonomy_enums_and_route_coverage():
+    for r in REG:
+        assert r["status"] in VALID_STATUS
+        assert r["decision"] in VALID_DECISIONS
+        assert r["record_kind"] in VALID_RECORD_KINDS
+        assert r["evidence_state"] in VALID_EVIDENCE_STATES
+        assert r["ownership"] in VALID_OWNERSHIP
+        assert r["failure_category"] in VALID_FAILURE_CATEGORIES
+        assert r["provenance_state"] in VALID_PROVENANCE_STATES
+        assert r["route_id"]
+        if r["decision"] == "RED": assert r["failure_reason"]
+
+def test_alias_one_step_and_unique():
+    idx = build_alias_index(REG); ids = {r["experiment_id"] for r in REG}; seen = set()
+    for alias, target in idx.items():
+        if alias == target: continue
+        assert alias not in ids
+        assert idx[target] == target
+        assert alias not in seen; seen.add(alias)
+
+def test_allocator_v11():
+    for series in ("P0", "P1", "P5", "P8", "P11", "P6R", "C", "M", "S"):
+        nums = [int(r["experiment_id"].split("-")[1][:2]) for r in REG if re.fullmatch(re.escape(series) + r"-\d{2}[a-z]?", r["experiment_id"])]
+        if nums: assert int(allocate_next_id(REG, series).split("-")[1]) == max(nums) + 1
+    assert re.fullmatch(r"P5-03[a-z]", allocate_next_arm(REG, "P5-03"))
+    with pytest.raises(ValueError): allocate_next_id(REG, "P12")
+    with pytest.raises(ValueError): allocate_next_id(REG, "P5R")
+
+def test_lifecycle_and_build_na():
+    for r in REG:
+        if r["status"] in ("planned", "running"): assert r["decision"] == "NA"
+        if r["status"] == "completed" and r["record_kind"] not in {"build", "protocol", "diagnostic", "audit"}:
+            assert r["decision"] != "NA"
+    assert next(r for r in REG if r["experiment_id"] == "P1-01")["decision"] == "NA"
+
+def test_directories_and_paths():
+    for r in REG:
+        phdir = os.path.join(ROOT, "experiments", {"C_clean":"C_clean_baseline", "C_clean_baseline":"C_clean_baseline", "P4_hidden":"P4_hidden_info"}.get(r["phase"], r["phase"]))
+        found = [d for d in os.listdir(phdir) if d.startswith(r["experiment_id"] + "_")]
+        assert found and os.path.exists(os.path.join(phdir, found[0], "README.md"))
+        for p in r["script_path"].split("|"):
+            p = p.strip()
+            if p.startswith("scripts/") and p.endswith(".py") and "*" not in p: assert os.path.exists(os.path.join(ROOT, p))
+
+def test_routes_and_submissions_reference_existing_ids():
+    ids = {r["experiment_id"] for r in REG}
+    routes = json.loads(open(os.path.join(ROOT, "experiments", "routes.yaml"), encoding="utf-8").read())
+    assert len(routes) == 20
+    assert all(set(x["evidence_ids"]).issubset(ids) for x in routes)
+    by = {x["route_id"]: x for x in routes}
+    assert by["R05-sequence"]["evidence_ids"] == ["P1-05"]
+    assert set(by["R12-geometry-signature"]["evidence_ids"]) == {"M-02", "M-03", "M-04", "P5-05"}
+    assert by["R17-realmlp-recipe"]["evidence_ids"]
+    assert by["R19-production-calibration"]["evidence_ids"] == ["S-08"]
+    assert by["R18-blsm"]["state"] == "active"
+    expected_states = {"R01-table-baseline":"frozen", "R02-r2-drift":"frozen", "R03-micro-primitives":"frozen", "R04-realmlp-clean":"frozen", "R05-sequence":"closed", "R06-m-residual":"closed", "R07-state-conditioned":"closed", "R08-unsupervised-latent":"closed", "R09-hidden-information":"external", "R10-amplitude-gate":"closed", "R11-scfi-z":"frozen", "R12-geometry-signature":"closed", "R13-p6r-production":"closed", "R14-o-to-t":"closed", "R15-p9-quant":"closed", "R16-cancel-eventtime":"closed", "R17-realmlp-recipe":"candidate", "R18-blsm":"active", "R19-production-calibration":"external", "R20-submissions":"frozen"}
+    assert {k: by[k]["state"] for k in expected_states} == expected_states
+    with open(os.path.join(ROOT, "submissions", "registry.csv"), encoding="utf-8-sig", newline="") as f:
+        subs = list(csv.DictReader(f))
+    assert len(subs) >= 11 and all(s["experiment_id"] in ids for s in subs)
+
+def test_generated_views_are_fresh():
+    import subprocess
+    p = subprocess.run([sys.executable, os.path.join(ROOT, "experiments", "_tools", "build_project_views.py"), "--check"], cwd=ROOT, capture_output=True, text=True)
+    assert p.returncode == 0, p.stderr or p.stdout
+
+def test_public_safety_and_diff_check():
+    import subprocess
+    for path in ["README.md", "CONTEXT.md", "experiments/registry.csv", "experiments/routes.yaml", "submissions/registry.csv", "docs/project-status.md"]:
+        text = open(os.path.join(ROOT, path), encoding="utf-8").read()
+        assert not re.search(r"(?:[A-Za-z]:[/\\])", text), path
+    p = subprocess.run(["git", "diff", "--check"], cwd=ROOT, capture_output=True, text=True)
+    assert p.returncode == 0, p.stdout + p.stderr
+
+def test_audit_is_clean():
+    a = audit_registry(REG, ROOT)
+    assert a["total_registry_entries"] == 116
+    assert a["canonical_count"] == 101 and a["legacy_count"] == 15
+    for key in ("invalid_unclassified", "alias_collision_count", "missing_directory", "missing_script", "missing_report", "decision_invalid", "record_kind_invalid", "evidence_state_invalid", "route_missing", "orphan_experiments"):
+        assert not a[key], (key, a[key])

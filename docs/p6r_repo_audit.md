@@ -6,9 +6,9 @@
 
 ## 0. 仓库定位与版本
 
-- 本地仓库: `D:\mscapital-kaggle`（`E:\aiworkspace\mscapital-kaggle` 为空目录，已被 D 盘取代）
+- 本地仓库: `<local-path>`（`<local-path>` 为空目录，已被 D 盘取代）
 - 当前分支: main（HEAD b61a852）；提交冻结纪律：代码/文档入库，数据/权重/预测不入库
-- 数据: `D:\mscapital-forecasting\data\`（raw/ 四文件 + processed/ 特征 parquet）
+- 数据: `<local-path>`（raw/ 四文件 + processed/ 特征 parquet）
 - 路线文档: `docs/plan-v1.8.0.md` 为唯一 current source of truth（v1.0–v1.7 已归档 `docs/_archive/plans/`）；**`docs/plan-v1.4.0.md` 已不存在**（任务书所列旧路径），其内容被 v1.8.0 吸收
 
 ## A. 当前真正的 frozen baseline
@@ -73,7 +73,7 @@
 
 ## F. 152 features 的准确来源和 artifact
 
-- Artifact: `D:\mscapital-forecasting\data\processed\f0726_train.parquet`（154 列 = sample_id + 152 特征 + target；1,257,637 行 = 全 train）；test: `f0726_test_f32.parquet`
+- Artifact: `<local-path>`（154 列 = sample_id + 152 特征 + target；1,257,637 行 = 全 train）；test: `f0726_test_f32.parquet`
 - **100% 覆盖 canonical OOF sample_id** ✓ 已实测
 - 特征命名族: t_*（成交动力学）、o_*（订单）、m_*（market）、x_*（cross/事件序列），构造来自公开 RealMLP 方案的 0726 特征复刻（脚本 `scripts/40_build_0726.py` 体系）
 - 模型: RealMLP_RQ (n_ens=16) 单模型 PSEUDO 0.138560；v7 融合 0.139683 → LB 0.135

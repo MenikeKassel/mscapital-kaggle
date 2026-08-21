@@ -212,7 +212,7 @@ dict(id="P1-01a", alias="P1-1a (历史简写)", phase="P1_representation", name=
  method="order: add/cancel imb/OFI norm/arrival/burstiness/大单; tx: 强度/大单/fast-slow; market: microprice/相对价差/L2 深度不平衡",
  baseline="-", score="-", delta="-", lb="-", decision="GREEN", failure="",
  do_not_repeat="", next="P1-01b",
- scripts="scripts/27_build_micro_features.py", outputs="output/micro_features_*.parquet (D:/mscapital-forecasting/data/processed)",
+  scripts="scripts/27_build_micro_features.py", outputs="output/micro_features_*.parquet|<local-data-root>",
  reports="RESULTS.md"),
 dict(id="P1-01b", alias="P1-1b (历史简写)", phase="P1_representation", name="双轴筛选 (alpha+drift)", date="2026-08-11",
  question="新特征 alpha 轴与漂移轴表现?",
