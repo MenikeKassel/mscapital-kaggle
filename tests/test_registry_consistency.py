@@ -92,6 +92,8 @@ def test_routes_and_submissions_reference_existing_ids():
     assert by["R17-realmlp-recipe"]["evidence_ids"]
     assert by["R19-production-calibration"]["evidence_ids"] == ["S-08"]
     assert by["R18-blsm"]["state"] == "active"
+    expected_states = {"R01-table-baseline":"frozen", "R02-r2-drift":"frozen", "R03-micro-primitives":"frozen", "R04-realmlp-clean":"frozen", "R05-sequence":"closed", "R06-m-residual":"closed", "R07-state-conditioned":"closed", "R08-unsupervised-latent":"closed", "R09-hidden-information":"external", "R10-amplitude-gate":"closed", "R11-scfi-z":"frozen", "R12-geometry-signature":"closed", "R13-p6r-production":"closed", "R14-o-to-t":"closed", "R15-p9-quant":"closed", "R16-cancel-eventtime":"closed", "R17-realmlp-recipe":"candidate", "R18-blsm":"active", "R19-production-calibration":"external", "R20-submissions":"frozen"}
+    assert {k: by[k]["state"] for k in expected_states} == expected_states
     with open(os.path.join(ROOT, "submissions", "registry.csv"), encoding="utf-8-sig", newline="") as f:
         subs = list(csv.DictReader(f))
     assert len(subs) >= 11 and all(s["experiment_id"] in ids for s in subs)
@@ -100,6 +102,14 @@ def test_generated_views_are_fresh():
     import subprocess
     p = subprocess.run([sys.executable, os.path.join(ROOT, "experiments", "_tools", "build_project_views.py"), "--check"], cwd=ROOT, capture_output=True, text=True)
     assert p.returncode == 0, p.stderr or p.stdout
+
+def test_public_safety_and_diff_check():
+    import subprocess
+    for path in ["README.md", "CONTEXT.md", "experiments/registry.csv", "experiments/routes.yaml", "submissions/registry.csv", "docs/project-status.md"]:
+        text = open(os.path.join(ROOT, path), encoding="utf-8").read()
+        assert not re.search(r"(?:[A-Za-z]:[/\\])", text), path
+    p = subprocess.run(["git", "diff", "--check"], cwd=ROOT, capture_output=True, text=True)
+    assert p.returncode == 0, p.stdout + p.stderr
 
 def test_audit_is_clean():
     a = audit_registry(REG, ROOT)
