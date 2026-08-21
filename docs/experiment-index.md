@@ -169,4 +169,5 @@
 → 已证伪方向全表: [failed-experiments.md](./failed-experiments.md)
 → 已确认结论: [research-findings.md](./research-findings.md)
 → 方法地图: [method-map.md](./method-map.md)
+→ 已实验方法清单 (大白话版): [methods-tried-zh.md](./methods-tried-zh.md)
 → 提交历史: [../submissions/README.md](../submissions/README.md)
