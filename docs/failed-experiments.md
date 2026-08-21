@@ -1,132 +1,73 @@
-# MSCapital 失败实验墓地 (Failed Experiments)
+# 失败与不足结果库
 
-> **Negative Knowledge Base** — 按失败机制分类, 用于阻止未来重复踩坑。
-> 每个条目: 实验 ID → 一句话机制 → 证据 → 禁止事项。
-> 更新: 2026-08-15 (仓库工程化整理 Phase I)
+失败不等于删除；每条记录都保留原因和 do-not-repeat。
 
----
+## model_saturation
 
-## 1. 没有新增信息 (特征与已有表示重叠)
+| ID | 路线 | 证据 | 结论 | 原因 |
+|---|---|---|---|---|
+| C1-FE | R01-table-baseline | negative | 不再盲目堆窗口统计特征 | 特征工程到顶, 90 特征即甜点位 |
+| H1 | R01-table-baseline | negative | 不再在表格特征+树+MLP 组合上做小增量融合 | CV +0.0004 未转化为 LB 提升 → 表格特征+树+MLP 组合已饱和 (0.122 平台期) |
+| P0-03 | R02-r2-drift | negative | 不再做表格模型权重微调 | 三次提交 v1/v2/v3 全 0.122 → 表格路线平台期确认, 权重微调无法突破 |
+| S-06 | R20-submissions | negative | 序列模型不通过 test 侧 corr 结构验证不得进生产融合 | N005: TCN test 分布外严重退化 (PSEUDO +0.004 → LB 0.082), test corr(tab,tcn)=0.03 致命预警 |
+| P1-04 | R03-micro-primitives | negative | 不再对微观特征做第二轮相对化 | 相对化在 PSEUDO 反而更差; 第一轮微观特征已是最优 |
+| P1-05 | R03-micro-primitives | negative | 不再用序列模型做生产融合 (除非 test 侧 corr 结构验证) | N005: test 分布外严重退化 — PSEUDO 验证对 TCN 不可靠 (test corr(tab,tcn)=0.03 是致命预警); 序列模型完全不可信 |
+| P3-02 | R08-unsupervised-latent | negative | 不再用简单拼接做条件化 (FiLM 式融合留给完整版) | 四折全正但拼接稀释 E01 纯状态信号, 未过 gate |
+| P3-03 | R08-unsupervised-latent | negative | 不再做掩码预训练 latent | 掩码 latent 无独立信息 (corr 过高), 预注册门禁终止 |
+| P3-04 | R08-unsupervised-latent | negative | 不再做网格投影 | 投影无信号 (信息已在聚合特征中) |
+| P3-05 | R08-unsupervised-latent | negative | 不投入完整 NHP 模型 | 诊断通过但信号极弱, 不投入完整 NHP |
+| P4-08 | R09-hidden-information | negative | 不做残差均值直接预测 | 聚合残差无预测增量 (负面链 #1) |
+| P4-15 | R09-hidden-information | negative | 不再追资产身份 | H1+H2 无证据 (与 P4-04b 0.5 价簇区分) |
+| M-01 | R06-m-residual | insufficient | 事件流特征无残差增量 | 事件流特征无残差增量 |
+| M-02 | R06-m-residual | insufficient | 几何特征无残差增量 | 几何特征无残差增量 |
+| M-03 | R06-m-residual | insufficient | 几何特征线整体关闭 | 几何 temporal 变体无残差增量 (与 M-02 同判) |
+| M-04 | R06-m-residual | insufficient | 签名特征无残差增量 | 签名特征无残差增量 |
+| M-05 | R06-m-residual | insufficient | 交互特征无残差增量 | 交互特征无残差增量 |
+| M-06 | R06-m-residual | insufficient | 状态检索无残差增量 (P6R 前身) | 状态检索无残差增量 (P6R 前身) |
+| P5-03 | R11-scfi-z | negative | 不再做简单 volatility/幅度 gate; 不再细扫 α∈[0,1] | 嵌套后 gate≈常数 (std=0.011), 月度 6/20; 置换对照≈0; 幅度可预测 ≠ 加权有效 |
+| P5-05 | R11-scfi-z | negative | 不再做 wavelet/shapelet/spectral CNN 短窗形态 | 短窗形态无信息; 相位破坏反演不变; M0-ref 复现 0.0861 确认协议有效 |
+| P6R-00 | R13-p6r-production | negative | 不再做检索-残差预测路线 | 无候选同时满足 CI 下界>0 与 α≥0.10; 相似状态残差均值预测力弱; 负面链 #5 |
+| P7-01 | R10-amplitude-gate | negative | 不再做 volatility confidence calibration / Market→Confidence 假设 | α 曲线单调下降; 高波动样本方向质量差 (cos 0.215→0.11); baseline 幅度分布已隐式最优 |
+| P8-01 | R14-o-to-t | negative | O→T 跨秒响应不存在; 同期lag=0是机械重合(0.33) | 不再做跨表时序箭头探针 (1s bin 尺度判死) |
+| P9-01 | R15-p9-quant | negative | 机制性证伪: err_corr≈0.99 — 残差方向无信息(P5-03 AUC 0.51 已证), diversity 无米下锅 | 不再做误差互补类训练 (NCL/反相关损失) |
+| C-08 | R04-realmlp-clean | negative | cosine decay (1→0) 在 30ep 短训练下为负 -0.0009: 后期 LR 过低学不动, best ep 9 早停; 论文 +13.5% 是 256ep+meta-tuned LR 的结论, 短训练协议不适用 | cosine decay 在 30ep 短训练协议下后期 LR 过低, best ep 9 早停, 负增益 (论文 +13.5% 需 256ep + meta-tuned LR); 本协议不适用 |
+| C-12 | R04-realmlp-clean | negative | Learnable scaling layer -0.0008: robust+clip 已归一化, 软特征选择无增量; lr×6 下早停 ep9 | robust+clip 已归一化, 软特征选择无增量; lr×6 早停 ep9, 负增益 (论文 +1.0% 未复现) |
+| C-15 | R04-realmlp-clean | negative | NT 参数化+数据驱动 init 灾难 -0.0375: NTK 改变梯度尺度, 与 LR=1e-3 不匹配 (论文配 lr=0.2+256ep+coslog4); best ep 28 持续爬升, 30ep 远不够 → 组件交互案例, NT 非独立组件 | NT 参数化改变梯度尺度与 LR=1e-3 不匹配 (论文配 lr=0.2+256ep+coslog4); best ep 28 持续爬升 30ep 远不够, 灾难性负增益; NT 非独立组件, 需与 LR 联合调 |
+| P9-05 | R16-cancel-eventtime | negative | 原始 iat/burst 聚合负增益; 152 基线已含事件节奏 (o_*_near_far / t_*_gap / rowcount_near_far), 未条件化原始聚合为冗余噪声变体; 事件节奏信息存在须经 Z 式 market/tx 条件化 (Z 绿灯), 原始形式无增量 | compressed tabular baseline 已包含事件节奏信息; 原始聚合叠加有害 |
 
-**特征工程到顶**: C1-FE (109 特征 -0.0004), B2 (删 EWM 持平)
-- 90 特征是表格甜点位; 更多窗口统计无增益
-- ❌ 不重复: 盲目堆窗口/盘口聚合特征
+## none
 
-**无监督 latent 无独立信息**: P3-01 SAE (PSEUDO -0.00076), P3-03 TinyLOBERT 掩码 (corr 0.86~0.98), P3-04 2.5D 网格 (+0.0000)
-- 自监督/无监督表示与 152 手工特征高度重叠
-- ❌ 不重复: 不做 SAE/掩码预训练/网格投影直接进残差学习
+| ID | 路线 | 证据 | 结论 | 原因 |
+|---|---|---|---|---|
+| E-01 | R07-state-conditioned | insufficient | gate 未过 (上界参考) | gate 未过 (上界参考) |
+| P9-02 | R15-p9-quant | insufficient | 正信号: γ 单调 0→1, frozen 20月未触碰; 月度 12/20 正 (增益集中, 未达 70% gate) | 不重复: 在 PSEUDO 预测上再叠加无新意的 Z 集; 需与组件/融合叠加验证 |
 
-**短窗跨通道形态无信息**: P5-05 RICS (全层 ≤0.011 corr_y, R4 相位 -0.006)
-- "≤10 步形态"不含 alpha; 相位破坏时间反演不变
+## nonstationarity
 
-**跨表时序箭头不存在**: P8-01A (15万样本/71月, 1s bin, z(±1..30s)≈0, A_z 0/71月, placebo 全覆盖)
-- order×tx 的关系是**同期机械重合** (lag=0 z≈0.33: tx 是 order 撮合结果的另一日志视图), 无跨秒滞后响应结构
-- 同期信息已被 152 特征覆盖 (t_vol_sum/t_buy_ratio 等)
-- ❌ 不重复: 跨表时序滞后探针 (O→T lag response); ETCI latency 类需 hazard/background 对照否则只是活动度特征
-- ❌ 不重复: 不做 wavelet/shapelet/spectral CNN 短窗形态
+| ID | 路线 | 证据 | 结论 | 原因 |
+|---|---|---|---|---|
+| E1-TW | R01-table-baseline | negative | 不再试任何时间衰减加权 | 全部无效或有害: 旧月份数据量价值更大, 漂移不是简单时间距离 |
+| P4-07 | R09-hidden-information | negative | 不再做月度漂移预测模型 | 月度漂移不可预测 (无结构) |
+| P9-03 | R15-p9-quant | negative | λ 全扫描 0.1-30: 仅 λ=3.0 单点 +0.0003, 两侧全负 ⇒ 噪声; V-REx 惩罚在 cosine+PSEUDO 下无可用区间 | 不再做 loss 方差惩罚类 (与 P4-07 漂移不可预测同向) |
+| P8-02 | R14-o-to-t | negative | N1/N3/N5 均未形成可迁移时序 alpha | 跨月时序关系不足且不可复现 |
 
-**micro_price/spread_std 线性信号无残差增量**: GAP-N1N3 (micro_gap 族 4 + spread_std 族 3, PSEUDO Δ=+0.0000, mean +0.000285, T4 单折 +0.0009)
-- EDA 双轨 spearman 有信号 (micro_gap_last vs t +0.050, spread_std vs |t| +0.265), 但残差协议下 PSEUDO 折零增量 — 线性相关已被树模型从现有特征 (m_imb/o_buy_ratio/m_sp 族) 间接捕获
-- T4 单折 +0.0009 是外层最近月折叠的假象 (E-01 同模式), PSEUDO 折 (最贴近 test 位置) 才是裁决
-- ❌ 不重复: 同类"EDA 发现新线性相关 → 补列走残差门禁"的预期 (线性相关 ≠ 残差增量; EDA 信号先过残差 probe 再立项)
+## not_identifiable
 
-**事件时距原始聚合 (iat/burst/acceleration) 无残差增量**: P9-B-LITE (frozen Δ=−0.003887, eval −0.002754, Δ月正 4/20)
-- 152 基线已含事件节奏: o_avg_time_gap/o_time_gap_std/t_*_gap + o_sec_rowcount_near_far_ratio/t_sec_rowcount_near_far_ratio (即 burst/acceleration)
-- 再叠加 iat_cv/log/burst_ratio/recent_prev 原始聚合 = 冗余噪声变体, 有害
-- ⚠️ 对照: 同一信息经 Z 式条件化 (O−E[O|M]) 后是 GREEN (152+73Z +0.0060) — "事件节奏信息存在, 但必须条件化才可兑现"
-- ❌ 不重复: 未经条件化的 raw 事件时距/突发度列堆叠到 152 基线
+| ID | 路线 | 证据 | 结论 | 原因 |
+|---|---|---|---|---|
+| M-07 | R06-m-residual | not_identifiable | 截面结构不可用 | 截面结构不可用 |
 
-**"低撤单样本上撤单特征=噪声" 机制猜想证伪**: P9-A-H14 mask 变体 (低撤单样本撤单列置0, q20=6700, 3 seed)
-- mask−raw 三 seed 全 ≤ 0 (−0.0067/−0.0017/−0.0005); mask 令 seed 2026 单测翻负; low_act 未救回反而更差
-- 且 "regime 集中" 本身是 seed 噪声: raw 撤单 3-seed low_act Δ = −0.006/+0.011/+0.007, hi_act 全正 ×3 → 双区均值皆正
-- ❌ 不重复: 用 hard-mask 低撤单样本的方式"修复"撤单特征 regime 集中 (真信号在低活动也有, 清空=丢信号)
+## protocol_invalid
 
-**raw 撤单叠加到 Z 无增量 (被 Z 吸收)**: P9-A-V2 三方 (152 / +cancel / +Z / +cancel+Z, seed 2026 frozen 51-70)
-- J−Z = **−0.0008** (受控同 seed), 月度 Δ 正 10/20; cancel 单独 +0.0041 vs Z +0.0087 → 替代差一半
-- 机制: Z 内含 Z_ob_cancel_side_imb 及 market/tx 条件化形式, raw 撤单是其劣化版本 → 信息已被 Z 覆盖
-- ❌ 不重复: 把 raw 撤单侧拆 (P9-A 13 列) 作为独立特征叠加到 152+Z 生产线上
+| ID | 路线 | 证据 | 结论 | 原因 |
+|---|---|---|---|---|
+| P10-01 | R11-scfi-z | invalid | 生产提交必须用与定标同源的模型 (同协议同 checkpoint 选择); 全量训练需留验证窗口定标 γ | scripts/p10_rq_prod_scfi.py scripts/p10_neutralize_prod.py |
+| S-09 | R20-submissions | invalid | 格式错误 ref 后的最终 LB 显著低于 v8b | protocol_invalid：校准模型与提交模型历史范围不一致 |
 
-## 2. 有信息, 但模型无法兑现
+## redundancy
 
-**序列模型 test 分布外退化**: P1-02 TCN → **v6 提交 LB 0.082** (N005, 全项目最惨教训)
-- PSEUDO 上融合 +0.004 全正, 真实 test 灾难; test corr(tab,tcn)=0.03 是致命预警
-- 机制: 事件流序列分布随月份漂移, 验证窗口与 test 的分布差异对序列模型致命
-- ❌ 不重复: 序列模型不通过 test 侧 corr 结构验证不得进生产融合
-- ✅ 教训: 表格 PSEUDO 校准可靠 (0.1349→0.125), 序列模型完全不可信
-
-**残差可解释性 ≠ 残差可预测增量** (五连杀): E-02 (窗口内 cos 0.013), P4-08 (+0.0000), P5-02 resid probe (AUC 0.51), P5-03, **P6R-00** (最大 +0.000588 = gate 39%)
-- 窗口内可解释的残差结构无法跨月变现为预测增量
-- ❌ 不重复: 不做残差均值/检索-残差预测路线
-
-**状态条件化拼接稀释**: P3-02 (+0.00095 四折全正但未过 gate)
-- 简单拼接稀释纯状态信号 (E-01 的 +0.0011 是上界)
-- ❌ 不重复: 简单 concat 条件化; 条件化必须 FiLM 式或特征层创新 (SCFI 已替代)
-
-## 3. 本地提升来自验证偏差
-
-**P4-10 loss ablation**: 本地 cosine loss 增益来自验证集重用 → **INVALID**
-- 机制: 非嵌套验证期调参, 本地提升不可外推
-- ❌ 不重复: 任何消融必须严格 nested; 调参期不得重用评估期
-
-**CV1 模型选择不可信**: P0-01 (MLP CV1 第一但 7/7 temporal folds 垫底)
-- ❌ 不重复: 用 temporal mean + Pseudo 选模型, 不用单 CV
-
-**MLP last-epoch 评估 bug**: P0-04 (评估协议高估 MLP 劣势)
-- ✅ 教训: 评估必须 best-state 而非 last-epoch
-
-## 4. 改善 |y| 估计, 但损害方向 (幅度侧整体关闭)
-
-**P5-03 MAG-Gate**: 嵌套 Δ = -0.000146 (非嵌套 +0.000138 假增益)
-- 机制: gate≈常数 (std=0.011); 月度 6/20; 置换对照≈0
-- ❌ 不重复: 4-bin/幂族幅度 gate; α∈[0,1] 细扫
-
-**P7-01 (GPT1 预注册终裁)**: Δ = +0.00000 (α* 全 0.0, 单调下降)
-- 机制: **高波动样本方向预测质量更差 (cos 0.215→0.11)**; 放大高波动 = 放大方向噪声; baseline 幅度分布已隐式最优
-- 幅度可预测 (corr(g,|y|)=0.383) ≠ 幅度加权有效
-- ❌ 不重复: volatility confidence calibration; "Market→Confidence" 假设; mid_range/mid_std 加权变体
-
-**时间衰减加权**: E1-TW (全无效或有害)
-- 漂移不是简单时间距离; 旧月份数据量价值更大
-
-## 5. 与 baseline 高度同质
-
-**特征相对化第二轮**: P1-04 (PSEUDO -0.0012)
-- 第一轮微观特征已最优; 第二轮相对化反而更差
-
-**表格模型权重微调**: P0-03 (v1/v2/v3 三次提交全 0.122)
-- 表格特征+树+MLP 组合饱和; 权重微调无法突破
-
-**五模型小增量融合**: H1 (CV +0.0004 未转化为 LB)
-- ❌ 不重复: 表格系内小增量融合 (已饱和)
-
-## 6. 目标/信息面不存在
-
-**月度漂移可预测性**: P4-05 (决定性负结果)
-- ❌ 不重复: 月度漂移预测模型
-
-**资产/时间身份泄漏**: P4-15 (无证据)
-- ❌ 不重复: 追资产身份 (0.5 价簇已证为 ask 全空计算假象, P4-04)
-
-**截面结构**: M-07 (无截面 alpha)
-- ❌ 不重复: 跨样本截面动态建模
-
----
-
-## 失败机制统计 (截至 2026-08-15)
-
-| 机制 | 数量 | 代表 |
-| -- | -: | -- |
-| 1. 没有新增信息 | 7 | C1-FE, P3-01/03/04, P5-05, B2, **P9-B-LITE** |
-| 2. 有信息但无法兑现 | 6 | TCN, E-02, P4-08, P6R-00, P3-02, M 系列×6 |
-| 3. 验证偏差 | 3 | P4-10, P0-01, P0-04 |
-| 4. 幅度有害 | 4 | P5-03, P7-01, E1-TW, P1-04 |
-| 5. 高度同质 | 3 | P1-04, P0-03, H1 |
-| 6. 信息面不存在 | 3 | P4-05, P4-15, M-07 |
-
-→ 各实验完整 README: [experiments/](../experiments/)
-→ 实验索引: [experiment-index.md](./experiment-index.md)
-
-**P6-R20260821 LB 翻转 (2026-08-21): 本地 +0.0014 → LB −0.001**
-- 机制: v8b 锚已含 RealMLP 族 + lb142 外部成分 0.5/0.5, 再叠加 RealMLP-C(152+73Z) 增量在 LB 侧被压缩并翻转, 独立于同源校准纪律 (本提交协议完全合规, 非 P10 型协议错位)。
-- 本地 PSEUDO blendΔ 双窗稳定 +0.0014 是真实互补性, 但 v8b 后 LB 边际饱和。
-- ❌ 不重复: v8b 之上继续叠加 RealMLP 系小增量; 需全新的 leaderboard 侧互补成分 (非 RealMLP 族)。
+| ID | 路线 | 证据 | 结论 | 原因 |
+|---|---|---|---|---|
+| P3-01 | R08-unsupervised-latent | negative | 不再做无监督 latent 直接进残差学习 | latent 与 152 手工特征重叠, 无新信息 |
+| P9-06 | R16-cancel-eventtime | insufficient | L1/L2 DWI + trade entropy 边缘增 +0.0005~+0.0007, 方向稳定 12/20 月Δ正, 略偏 hi_act → YELLOW 进联合实验; DWOFI 仅 L1/L2 两层可构造, 熵与 t_buy_ratio 重叠, 与 P10-FM M1 L2 档位 (+0.0008 边缘) 一致 |  |
+| P9-08 | R16-cancel-eventtime | negative | 撤单族归因闭合: cancel ⊂ Z — 替代否决 (A 只有 Z 一半强), 叠加否决 (J−Z −0.0008, 月度Δ正 10/20); Z 含 market/tx 条件化的 Z_ob_cancel_side_imb, 撤单族是 Z 绿灯的驱动成分但 Z 表达更好; 结论「直接用 A」不成立, 撤单族不做独立生产特征, 生产资产仍 152+73Z; A 的价值 = 归因证据 + Z 可解释成分 | raw 撤单侧拆叠加到 152+Z 无增量 (信息已被 Z 覆盖) |

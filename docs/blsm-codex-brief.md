@@ -20,7 +20,7 @@
 ## 1. 比赛与数据（Codex 需要知道的硬事实）
 
 - **任务**: 预测未来 10 分钟收益方向。指标 **uncentered cosine，越大越好**。
-- **数据**（本机 `D:\mscapital-forecasting\data`）:
+- **数据**（本机 `<local-path>`）:
   - 原始三表: `raw/train/market.feather`（L1/L2 订单簿，600s）、`order.feather`（订单事件 60s）、`transaction.feather`（成交事件 60s）、`label.feather`（month 0-70 + target）
   - 处理特征: `processed/f0726_train_f32.parquet`（**152 基线特征**，1,257,637 行）、`f0726_test_f32.parquet`（647,896 行）
   - 项目自研 Z 特征: `f0726_train_z_f32.parquet` / `f0726_test_z_f32.parquet`（152+73Z）
@@ -29,7 +29,7 @@
   - **frozen 51-70 为审判窗**（结论只看这里）
   - 指标 uncentered cosine（大=好）
   - 单组件噪声线 ~±0.0005
-- **运行环境**: 仓库 `D:\mscapital-kaggle`（git）；venv `.venv/Scripts/python.exe`（polars≥1.43 / torch≥2.6）；**GPU 8GB 严格串行**（只跑一个 torch 任务）。
+- **运行环境**: 仓库 `<local-path>`（git）；venv `.venv/Scripts/python.exe`（polars≥1.43 / torch≥2.6）；**GPU 8GB 严格串行**（只跑一个 torch 任务）。
 
 ## 2. 项目现状（为什么 BLSM 时机合适）
 
@@ -137,7 +137,7 @@ E>D 且稳定 → 支持 Behavior×Market 交互假设（本路线最重要的�
 1. `docs/blsm-g0-report.md`: G0 完整结果（特征清单、诊断数字、EXIST/FAIL 结论）
 2. `scripts/blsm_g0_*.py`: 特征构建 + 诊断脚本
 3. registry 追加 `BLSM-G0` 行（28 列 CSV，格式参考现有行，编码 utf-8 无 BOM 追加）
-4. git 提交（仓库 `D:\mscapital-kaggle`），commit message 写明结论
+4. git 提交（仓库 `<local-path>`），commit message 写明结论
 
 ## 8. 交接自检（完成前过一遍）
 

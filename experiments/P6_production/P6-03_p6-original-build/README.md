@@ -1,0 +1,5 @@
+# P6-03 — P6-ORIG 纯原创融合构建
+
+状态：completed；证据：validated；路线：R13-p6r-production。
+
+本目录为实验索引入口；详细事实以 registry.csv 和 source_refs 为准。

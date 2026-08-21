@@ -2,7 +2,7 @@
 
 > 用途：把本报告给 GPT 评审。要求：逐条核实证据链、指出协议漏洞或过度解读、
 > 对"下一步"给出独立判断。所有数据均可从仓库复现（脚本+产物路径已附）。
-> 仓库：`D:\mscapital-kaggle` | 裁判文档：`docs/p5-final-decision.md`
+> 仓库：`<local-path>` | 裁判文档：`docs/p5-final-decision.md`
 
 ---
 

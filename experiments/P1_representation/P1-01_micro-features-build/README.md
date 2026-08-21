@@ -44,4 +44,4 @@
 
 - Scripts: `scripts/27_build_micro_features.py`
 - Reports: `RESULTS.md`
-- Artifacts: `output/micro_features_*.parquet (D:/mscapital-forecasting/data/processed)`
+- Artifacts: `output/micro_features_*.parquet (<local-path>)`

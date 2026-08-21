@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""MSCapital 新实验分配器 (Experiment ID v1.0 唯一正式入口).
+"""MSCapital 新实验分配器 (Experiment ID v1.1 唯一正式入口).
 
 用法:
   python experiments/_tools/new_experiment.py P5 market-volatility-residual [--parent P5-01]
@@ -17,20 +17,16 @@ BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "src"))
 from mscapital.experiment_registry import (
     load_registry, load_meta, allocate_next_id, allocate_next_arm,
-    resolve_row, REGISTRY_PATH, META_PATH,
+    resolve_row, REGISTRY_PATH, META_PATH, REQUIRED_COLUMNS, PHASE_DIRS,
 )
 
-COLS = ["experiment_id","id_status","title","name","phase","created_at","status","decision",
-        "parent","successor","aliases","tags","data_market","data_order","data_transaction",
-        "base_model","objective","validation","baseline_score","score","delta","public_lb",
-        "conclusion","failure_reason","do_not_repeat","script_path","report_path","artifact_path"]
+COLS = REQUIRED_COLUMNS
 
-PHASE_DIRS = {
-    "P0": "P0_protocol", "P1": "P1_representation", "P2": "P2_calibration",
-    "P3": "P3_nextgen", "P4": "P4_hidden_info", "P5": "P5_market",
-    "P6": "P6_production", "P6R": "P6_production", "P7": "P7_amplitude",
-    "C": "C_clean_baseline", "E": "E_conditional", "M": "M_representation", "S": "S_submissions",
-}
+ROUTES = {"P0": "R02-r2-drift", "P1": "R03-micro-primitives", "P2": "R04-realmlp-clean",
+          "P3": "R08-unsupervised-latent", "P4": "R09-hidden-information", "P5": "R11-scfi-z",
+          "P6": "R13-p6r-production", "P6R": "R13-p6r-production", "P7": "R10-amplitude-gate",
+          "P8": "R14-o-to-t", "P9": "R15-p9-quant", "P10": "R11-scfi-z", "P11": "R18-blsm",
+          "C": "R04-realmlp-clean", "E": "R07-state-conditioned", "M": "R06-m-residual", "S": "R20-submissions"}
 
 def main():
     ap = argparse.ArgumentParser(description="MSCapital 新实验分配器 (No ID, No Experiment)")
@@ -40,6 +36,7 @@ def main():
     ap.add_argument("--parent", default="", help="parent canonical ID")
     ap.add_argument("--title", default="", help="中文标题 (可选)")
     ap.add_argument("--tags", default="", help="tags (| 分隔, 可选)")
+    ap.add_argument("--route-id", default="", help="主路线 ID（默认按 series 推断）")
     ap.add_argument("--registry", default=REGISTRY_PATH, help="registry 路径 (测试用)")
     args = ap.parse_args()
 
@@ -53,7 +50,7 @@ def main():
         slug = args.name or "arm"
     else:
         series = args.series_or_arm
-        if series not in ("P0","P1","P2","P3","P4","P5","P6","P6R","P7","C","E","M","S"):
+        if series not in ROUTES:
             ap.error(f"invalid series: {series}")
         if not args.name or not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,59}", args.name):
             ap.error("name 必须为 ASCII slug (小写字母/数字/连字符)")
@@ -73,8 +70,11 @@ def main():
         "experiment_id": new_id, "id_status": "canonical",
         "title": args.title or slug.replace("-", " ").title(),
         "name": slug, "phase": {"P6R": "P6_production"}.get(series, PHASE_DIRS.get(series, series)),
-        "created_at": "2026-08-15", "status": "planned", "decision": "NA",
+        "created_at": __import__("datetime").date.today().isoformat(), "status": "planned", "decision": "NA",
         "parent": parent, "aliases": "", "tags": args.tags,
+        "record_kind": "model", "evidence_state": "pending", "ownership": "self_owned",
+        "route_id": args.route_id or ROUTES[series], "failure_category": "none",
+        "provenance_state": "partial", "source_refs": "",
     })
     with open(args.registry, "a", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=COLS)

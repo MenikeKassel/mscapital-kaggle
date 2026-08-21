@@ -108,7 +108,7 @@
 | 附录 D 逐数据集解析脚本 | research/paper-reading-2026-08/parse_appendix_d.py（12 表可复算） |
 | pytabkit 官方代码 | research/paper-reading-2026-08/pytabkit_code/ |
 | realmlp-td-s_standalone | research/paper-reading-2026-08/tds_standalone_code/ |
-| lb142 推理包（33 文件，md5 已与 Kaggle 原始上传核对一致） | D:\mscapital-forecasting\reference\lb142\ |
+| lb142 推理包（33 文件，md5 已与 Kaggle 原始上传核对一致） | <local-path> |
 | rfmf-realmlp + rfmf-0726data 源码（Kaggle pull API 获取） | research/paper-reading-2026-08/rfmf_realmlp_source.ipynb、rfmf_0726data_source.ipynb |
 | 方法台账三件套 | docs/method-map.md、experiments/registry.csv、docs/failed-experiments.md |
 | 校准协议 | docs/calibration.md |

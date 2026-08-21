@@ -1,21 +1,34 @@
 {
-  "schema_version": 2,
-  "experiment_id_spec_version": "1.0",
-  "generated_at": "2026-08-15",
-  "entries": 82,
-  "series": [
-    "P0",
-    "P1",
-    "P2",
-    "P3",
-    "P4",
-    "P5",
-    "P6",
+  "schema_version": 3,
+  "experiment_id_spec_version": "1.1",
+  "generated_at": "2026-08-21",
+  "entries": 116,
+  "canonical_entries": 101,
+  "legacy_entries": 15,
+  "canonical_series": [
+    "P0-P11",
     "P6R",
-    "P7",
     "C",
     "E",
     "M",
     "S"
-  ]
+  ],
+  "legacy_allowlist": [
+    "A1",
+    "A2",
+    "B0",
+    "B1",
+    "B1-LGO",
+    "B2",
+    "C1-FE",
+    "D1",
+    "E1-TW",
+    "F1",
+    "F2",
+    "G1",
+    "G2",
+    "G3",
+    "H1"
+  ],
+  "migration": "experiments/_tools/migrate_ssot_v3.py"
 }
