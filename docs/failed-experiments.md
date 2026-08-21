@@ -125,3 +125,8 @@
 
 → 各实验完整 README: [experiments/](../experiments/)
 → 实验索引: [experiment-index.md](./experiment-index.md)
+
+**P6-R20260821 LB 翻转 (2026-08-21): 本地 +0.0014 → LB −0.001**
+- 机制: v8b 锚已含 RealMLP 族 + lb142 外部成分 0.5/0.5, 再叠加 RealMLP-C(152+73Z) 增量在 LB 侧被压缩并翻转, 独立于同源校准纪律 (本提交协议完全合规, 非 P10 型协议错位)。
+- 本地 PSEUDO blendΔ 双窗稳定 +0.0014 是真实互补性, 但 v8b 后 LB 边际饱和。
+- ❌ 不重复: v8b 之上继续叠加 RealMLP 系小增量; 需全新的 leaderboard 侧互补成分 (非 RealMLP 族)。
